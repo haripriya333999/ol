@@ -1,0 +1,513 @@
+Bro ❤️🔥 Now that Live Detection accuracy is the priority and we're addressing its classification problems, we need to make the other three features extremely fast without sacrificing accuracy:
+
+1. Describe Surroundings — understand the current camera image and speak a useful description as quickly as possible.
+2. Find Object — locate the exact object the user requests and immediately provide a reliable result.
+3. Read Text — capture visible text, recognise it accurately and start reading it aloud with minimal delay.
+
+For OmniLens, speed means more than making a loading spinner disappear. It means reducing the time between the user requesting help and receiving a correct, useful, spoken answer.
+
+# 1. Describe Surroundings — fast scene understanding
+
+[Redlands Lane | Strutt & Parker](https://images.openai.com/static-rsc-4/0yHZIx4j_2OjGxegOPIFByIE_nayAQ5M3h7frWuqHuhmL7THi0Mvtj92V-oM_qosnqRYp5uUX1yspsVqVjyoQfDVPTUG87s_aDDvyuxoU1Mf2RjUZLJyik9DEVqJEnWI5uVVBc39eDDA3-oQl0FRV4MbDQVqula4ut_qcQ8mfXo?purpose=inline)
+
+[struttandparker.com](https://www.struttandparker.com/properties/redlands-lane-1?utm_source=chatgpt.com)
+
+Imagine the user opens OmniLens, points the camera at a room and says, “Describe my surroundings.”
+
+The feature should not make the user wait several seconds while the app repeatedly uploads images, calls multiple models and generates a long description. It should capture a fresh frame, understand the important visible objects and begin speaking a concise, grounded description as soon as possible.
+
+## How it should work
+
+1\. Capture a fresh frame
+
+Reuse the active camera stream when available.
+
+2\. Prepare the image efficiently
+
+Resize appropriately and use only useful preprocessing.
+
+3\. Understand the scene
+
+Use a suitable vision model to identify objects and supported spatial relationships.
+
+4\. Speak the useful result
+
+Prioritise important information and start speech without waiting for unnecessary extras.
+
+### What must be improved
+
+- Reuse the already-running camera rather than repeatedly opening and closing it.
+- Avoid sending the same frame through multiple redundant vision APIs.
+- Select an appropriate image resolution that retains relevant details without excessive processing.
+- Load the vision model once when possible.
+- Use concise prompts that request only the details needed for scene understanding.
+- Avoid asking a language model to describe objects that a previous step has already reliably identified, unless that extra reasoning adds value.
+- Start speaking when a sufficiently useful result is ready; don't delay everything for optional details.
+- Cancel obsolete requests when the user changes features or captures a newer image.
+- Never use an old scene description as if it describes the current camera view.
+
+### Speed target
+
+Aim for a first useful spoken description within 1–2 seconds on supported hardware and a suitable network connection. This is a target to measure, not a guaranteed result. Complex scenes and slower remote vision models may take longer.
+
+# 2. Find Object — find the requested item immediately
+
+[School Backpack and Notebooks Lying on Sofa and Table Preparing for School](https://images.openai.com/static-rsc-4/rwRqZh4jjGXdGDuuUO4ED7ETQnXdEYvo9TE8xVohxyeoIh3VHB5HBqNlodKHMVS9H_rR4YF_3camyfJNSnQNRM6mp8WHuqrfr7xtCHFhUu17PweOBiZ-VcUJgmOUuOpBXqy2RLFHJOOVXmt5330Vaj9lIYkXpiLke9eUcvpWdla00ORZ2hpFi776ZoowDXla?purpose=inline)
+
+Imagine the user says, “Bro, find my water bottle.”
+
+OmniLens should not take several seconds to describe the whole room before searching for the bottle. It should focus on the requested target, locate it in a fresh frame, and give a useful answer immediately.
+
+## How it should work
+
+1. Understand the request. Convert the spoken or typed request into a target, such as `water bottle`.
+2. Capture a fresh frame. Reuse the active camera stream if available.
+3. Search efficiently. Use the existing detector if it supports the target. If not, use a suitable open-vocabulary detector or another supported recognition method.
+4. Locate the target. Obtain the actual bounding box and determine the object's position in the camera view.
+5. Speak the result. For example: “I found a water bottle near the centre of your camera view.”
+6. Handle failure honestly. Say, “I couldn't detect the water bottle in the current view,” rather than claiming it is absent from the room.
+
+### What must be improved
+
+- Avoid running a full scene-description model before every object search.
+- Reuse already-computed detections from a recent frame only if that frame is sufficiently fresh and relevant.
+- Match the requested target against actual detection labels and supported synonyms.
+- Use a targeted recognition fallback for unsupported categories instead of repeatedly trying the same unsuccessful model.
+- Avoid sending the same image to several remote services sequentially.
+- Stop unnecessary processing when the target is confidently located.
+- Keep the position description consistent with the camera orientation.
+- Prevent old target locations from being presented as current.
+
+### Speed target
+
+Aim for the first useful result within 0.3–0.8 seconds on supported hardware for common, supported objects. More difficult targets may require additional processing.
+
+The most important point: a quick wrong answer is not an improvement. The system should return a reliable result quickly, or clearly state that it needs more time or cannot confidently find the target.
+
+# 3. Read Text — recognise and speak text with minimal delay
+
+[Rescirk | Marion](https://images.openai.com/static-rsc-4/n5bf9IZIvdH7lEV3NS6o7BWnEUF1-1gvdNB4YrQb9LkBg-IEJRUPEwIGYoq73u7RzkB4BV5KqUhSeNhCeiWc8GztlNaTlnd6KJ22ZswfycUwvu34NxqBFGBcUb4dfTHouf9O3kEGQPIKsuOHZsd7PhFThWfGktQhDZMPmjZ9rXI?purpose=inline)
+
+[pl.marion-jj.cz](https://pl.marion-jj.cz/produkty/spreje/rescirk-46.html?utm_source=chatgpt.com)
+
+Imagine the user points the camera at a sign, book page, document or product label and presses Read Text.
+
+The app should capture the text, recognise it, and begin reading it aloud without waiting for unnecessary image-description or language-model processing.
+
+## How it should work
+
+1\. Capture the text image
+
+Use a fresh frame and preserve enough resolution for the text.
+
+2\. Prepare the image
+
+Correct orientation, crop useful text regions, and enhance contrast only when beneficial.
+
+3\. Run OCR
+
+Recognise characters and arrange text regions into a sensible reading order.
+
+4\. Speak recognised text
+
+Pass the actual OCR result directly to text-to-speech without rewriting it.
+
+## What must be improved
+
+- Use OCR directly: Do not call a general-purpose vision-language model just to read ordinary printed text if a suitable OCR engine can handle it.
+
+- Load OCR once: Avoid initialising the OCR model on every request.
+
+- Reduce unnecessary image conversion: Decode, crop and preprocess each frame only as needed.
+
+- Preserve text detail: Do not shrink a document so much that small characters become unreadable. Higher image resolution can improve text recognition, but it also increases vision-processing latency.&#x20;
+
+  [image](https://www.google.com/s2/favicons?domain=https://machinelearning.apple.com\&sz=32)
+
+  Apple Machine Learning Research
+
+  +1
+
+- Process text regions intelligently: Detect separate regions and preserve their reading order.
+
+- Start speech promptly: Begin reading as soon as a useful, verified portion of text is available. For long documents, use carefully ordered chunks rather than waiting for an unnecessarily long response.
+
+- Keep speech faithful: Do not let an LLM paraphrase, invent or silently correct OCR output.
+
+- Handle poor images: If the text is blurry, cut off or uncertain, report that instead of guessing.
+
+### Speed target
+
+Aim for 0.3–1 second to obtain the first useful OCR result and begin speech within approximately 0.5–1.5 seconds for clear, short text on supported hardware.
+
+These are engineering goals, not guarantees. Full-page documents, tiny text and complex layouts may take longer.
+
+# 4. The biggest performance improvements across all three features
+
+The trick is to find the actual bottleneck rather than randomly making every component smaller.
+
+A. Stop unnecessary AI calls
+
+Each feature should use the shortest suitable processing path. Find Object should not generate a complete scene narrative; Read Text should not call an LLM for ordinary OCR; Describe Surroundings should not call multiple models redundantly.
+
+B. Reuse models and camera resources
+
+Load models during startup or first use and reuse them. Reuse the active camera stream, initialise preprocessing resources once where appropriate, and avoid downloading or loading weights for each request.
+
+C. Optimise image resolution intelligently
+
+Use the smallest input that retains the information required for the task. Scene descriptions may tolerate a smaller image; OCR often needs finer text details. Benchmark the accuracy-versus-latency trade-off instead of forcing one resolution on every feature.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://machinelearning.apple.com\&sz=32)
+
+Apple Machine Learning Research
+
++1
+
+
+
+D. Reduce network and server delays
+
+If the model runs remotely, measure upload time, server queue time, inference time and response transfer separately. Use efficient image encoding, suitable deployment regions and connection reuse where supported.
+
+E. Optimise speech separately
+
+Measure when the text result is ready and when the first spoken audio starts. Avoid waiting for speech generation or an entire long answer when the system can safely begin speaking an already-verified result. Keep speech cancellable and prevent overlapping voices.
+
+F. Measure actual latency
+
+Record median and p95 times for capture, preprocessing, inference, postprocessing, network transfer, and time to first speech. Optimise the slowest stage first. A fast model can still feel slow if the app spends too long encoding images or waiting for network requests.
+
+## 5. Recommended response-time goals
+
+These are proposed goals for OmniLens, not measured performance.
+
+| Feature               | Goal for first useful result |
+| --------------------- | ---------------------------- |
+| Find Object           | 0.3–0.8 seconds              |
+| Read Text             | 0.3–1.0 seconds              |
+| Describe Surroundings | 0.5–1.5 seconds              |
+
+For speech, also measure the time until the user actually hears the first useful words. The time when the backend returns text is not the same as the time when spoken feedback begins.
+
+If the current application uses a slow remote model, the targets may require model changes, deployment optimisation or a local inference path. They should not be achieved by returning cached, guessed or fabricated results.
+
+## 6. How the three features should behave together
+
+Imagine this sequence:
+
+- The user selects Find Object and asks for a bottle. OmniLens searches the current frame and speaks the location.
+- The user selects Read Text and points at a label. OmniLens recognises the actual text and begins reading it.
+- The user selects Describe Surroundings and points the camera around a room. OmniLens provides a concise description based on a fresh frame.
+
+Each feature should perform its own task directly, share resources where beneficial, and cancel irrelevant work when the user switches features. All three must preserve the accuracy standards we established for Live Detection.
+
+Bro, the final goal is simple: the user should not feel like they are waiting for an AI pipeline to finish. OmniLens should feel immediate, but it must remain honest about what it sees and reads.# OMNILENS — EXTREME SPEED AND LOW-LATENCY OPTIMISATION
+
+Improve the response speed of all four OmniLens features: Live Detection, Find Object, Read Text, and Describe Surroundings.
+
+The goal is to make detection, result generation, and spoken responses as fast as practically possible while preserving accuracy. Do not sacrifice correctness just to increase FPS or reduce response time.
+
+## 1. Measure the complete response pipeline
+
+Inspect the existing repository before changing code.
+
+Measure the time spent in:
+- Camera capture and frame preparation.
+- Image encoding and upload.
+- Backend queueing.
+- OpenCV preprocessing.
+- Model initialisation, if any.
+- Model inference.
+- Postprocessing and result formatting.
+- Frontend rendering.
+- Text-to-speech generation and playback startup.
+
+Report actual timings before and after optimisation. Do not invent measurements.
+
+## 2. Live Detection
+
+- Prioritise fast, local object detection where supported.
+- Load model weights once and reuse the model.
+- Avoid cloud LLM calls for every video frame.
+- Use a bounded latest-frame queue so the system processes fresh frames instead of accumulating old ones.
+- Prevent overlapping inference requests and discard obsolete results.
+- Optimise model input resolution, batching and hardware acceleration based on measured accuracy and latency.
+- Keep labels and bounding boxes correct.
+- Prevent duplicate boxes, stale detections and unnecessary flicker.
+- Maintain the best practical recall and precision.
+- Do not lower detection quality merely to advertise a higher frame rate.
+
+Target: 15–30 FPS on suitable hardware, subject to actual model performance and accuracy.
+
+## 3. Find Object
+
+- Interpret the user's request immediately.
+- Reuse recent detections only when their frames are sufficiently fresh.
+- Search the current frame directly without generating an unnecessary full scene description first.
+- Use the existing detector when it supports the requested category.
+- Use a suitable targeted recognition fallback for unsupported categories when available.
+- Return the actual target label and position as soon as a reliable result is available.
+- Avoid sequential, redundant model and API calls.
+- Do not report a match that has not been visually established.
+
+Target: aim for a first useful result within 0.3–0.8 seconds for common supported objects on suitable hardware.
+
+## 4. Read Text
+
+- Use an efficient OCR pipeline for ordinary text rather than a general-purpose LLM when OCR is sufficient.
+- Load the OCR engine once and reuse it.
+- Avoid unnecessary image encoding, resizing, preprocessing and model initialisation.
+- Preserve sufficient resolution for small text.
+- Process useful text regions efficiently and maintain reading order.
+- Start speech promptly after the verified text is available.
+- Do not rewrite, guess or fabricate OCR output to make the response faster.
+
+Target: aim for a first useful OCR result within 0.3–1.0 seconds for clear, short text on suitable hardware.
+
+## 5. Describe Surroundings
+
+- Capture a fresh frame immediately.
+- Avoid redundant calls to multiple vision services.
+- Use an appropriate image resolution and vision model.
+- Request a concise, grounded description instead of an unnecessarily long response.
+- Start speaking as soon as a useful, sufficiently reliable description is ready.
+- Do not wait for optional details before delivering the essential description.
+- Cancel obsolete requests when the user switches features or captures a newer frame.
+- Never present a cached description as a description of the current view.
+
+Target: aim for a first useful result within 0.5–1.5 seconds on suitable hardware.
+
+## 6. Optimise speech and user feedback
+
+- Measure the delay between the result becoming available and the first audible words.
+- Reuse speech resources where possible.
+- Avoid generating unnecessarily long descriptions.
+- Prevent overlapping speech and cancel speech when requested.
+- Do not block the interface while waiting for audio playback to finish.
+- Provide immediate, accessible loading or progress feedback without presenting incomplete results as confirmed facts.
+- If a request takes longer than expected, remain responsive and communicate its state honestly.
+
+## 7. OpenCV and shared resources
+
+Verify that the actual OpenCV version is installed and used in the real processing environment.
+
+Reuse camera resources and model instances where appropriate. Avoid repeated model downloads, unnecessary image copies and redundant preprocessing.
+
+Benchmark each OpenCV operation to determine whether it improves accuracy enough to justify its latency. Preserve coordinate correctness and image details.
+
+## 8. Final performance verification
+
+Test all four features using real camera frames and actual results.
+
+Report:
+- Time to first useful result.
+- Time to first spoken response.
+- Median and p95 latency.
+- Live Detection FPS.
+- Accuracy before and after changes.
+- CPU/GPU and memory usage where available.
+- Actual model and OpenCV versions.
+- Tests passed, failures and remaining limitations.
+
+Keep the existing UI colour scheme. Preserve the accuracy requirements and all four features.
+
+Never use mock results, stale detections, fabricated text or guessed descriptions to make the application appear faster.
+
+**Priority: minimise time to correct detection, useful response and first audible feedback across every feature. Optimise the real bottlenecks and prove the improvements with measurements.**Brooo ❤️🔥 I'll explain this in a simple way so you understand what we want Antigravity to change, how the four features should work, and how OmniLens can respond much faster without giving wrong answers.
+
+# 1. First, understand what “very fast” actually means
+
+Imagine you point your camera at a table containing a bottle, a book, a phone and some keys.
+
+OmniLens has three jobs to do:
+
+Detection speed
+
+How quickly the AI identifies the objects in the image.
+
+Response generation speed
+
+How quickly the app turns the detection, OCR or scene understanding result into a useful answer.
+
+Speaking speed
+
+How quickly the user actually starts hearing the answer.
+
+The real goal: reduce the total time from the user's action to the first correct, useful result—and then to the first spoken words.
+
+For example, an AI might identify an object in 200 milliseconds, but if the app spends another two seconds uploading images and waiting for a server, the user still experiences a slow response.
+
+# 2. How each OmniLens feature should work
+
+## A. Live Detection — continuous and immediate
+
+[What is Labelo ?](https://images.openai.com/static-rsc-4/whywn9_9WIfi7bUxc3S_A1ObxFyylN2quVOPMioh69RX4N8JVNEvmqHcB7rRjXApvARik-LSUg2UsWyZmrlVasgQojGQq2VBufrEQb1QrsPOht-hxfOCZEtmstBIWri37kTnJQxrcahnoaOXh2uXaTiGUk1H9eII1uJbE9eCqAI?purpose=inline)
+
+[labelo.ai](https://www.labelo.ai/blog/what-is-labelo/?utm_source=chatgpt.com)
+
+Suppose you point the camera at a room.
+
+1. The camera continuously captures frames.
+2. The detection model analyses those frames.
+3. OmniLens draws boxes around recognised objects.
+4. The labels update as the camera or objects move.
+5. The spoken assistant reports useful information without repeating every label continuously.
+
+The system should reuse the model already loaded in memory instead of loading it for every frame.
+
+It should also prioritise fresh frames. If the AI is still processing an old image, it should not keep building a queue of images that are already outdated.
+
+Example: If you move the camera from a chair to a door, OmniLens should quickly update the displayed detections to match the new view.
+
+However, speed must not come from simply lowering the quality of recognition. A fast, incorrect label is still incorrect.
+
+## B. Find Object — search directly for the requested item
+
+[:30 TV Spot | Videos & Movies on Vimeo](https://images.openai.com/static-rsc-4/Tsr0-DzDdFX2lJLqi5t6vGCNxPoU40BcmUxlUXlAfTgN9vt1QJ1ww3j4C5LwBGx1QRLUeEudOvQF69-RqDgtpJsPJrSedzgriCehh-3bTrqx1OQVGQVy-mDTnYyL2rxJgFHUFs6E44xkQ02qAStFBbguFP7Z-jiw7xbfTVJWI2M?purpose=inline)
+
+[vimeo.com](https://vimeo.com/873781525?utm_source=chatgpt.com)
+
+Suppose you say, “Find my water bottle.”
+
+A slow implementation might:
+
+1. Capture an image.
+2. Generate a long description of the whole room.
+3. Send another image to a separate model.
+4. Search for the bottle.
+5. Generate a response.
+6. Finally speak the result.
+
+That is unnecessary if the application already has a suitable detector.
+
+A better implementation would:
+
+1. Understand the requested target.
+2. Capture a fresh frame or use a sufficiently fresh existing detection result.
+3. Search for the bottle directly.
+4. Calculate its position from the detected bounding box.
+5. Speak the result.
+
+For example: “I found a bottle near the centre of your camera view.”
+
+If the target cannot be detected, OmniLens must say so honestly. It must not invent a location just to respond quickly.
+
+## C. Read Text — recognise and start reading quickly
+
+[Copia y extrae el texto de cualquier imagen con Google Fotos](https://images.openai.com/static-rsc-4/E68gODdhe8HhgI5n_dlh466TJMX9bfCltk6ZfAH0aWZx6x3hehG1V5Osoo4iQ2rq1zADR0HWJcV1d0G-fU9YRvhdW0JM-tNyX2LLgHwUEAid7msfLe0T7qroMNswtueBBtaGZg3Yd84_7f1j6Oyp_FI7xaZkt7IavugWYbx2Qx8?purpose=inline)
+
+[elespanol.com](https://www.elespanol.com/elandroidelibre/noticias-y-novedades/20210413/copia-extrae-texto-cualquier-imagen-google-fotos/573444401_0.amp.html?utm_source=chatgpt.com)
+
+Suppose you point the camera at a printed page.
+
+The application should capture the image, run OCR (Optical Character Recognition), and pass the recognised text to the speech engine.
+
+OCR is the technology that converts text visible in an image into actual digital characters.
+
+For ordinary printed text, a suitable OCR engine can often do the job without sending the image through a general-purpose AI model first.
+
+The important steps are:
+
+- Load the OCR engine once and reuse it.
+- Preserve sufficient image resolution for small characters.
+- Avoid unnecessary image conversions.
+- Begin speaking once a useful, verified text result is ready.
+- Never guess unreadable characters to save time.
+
+Example: If the page says “Exam begins at 10:30 AM,” OmniLens should read those exact words and numbers, not generate a paraphrase.
+
+## D. Describe Surroundings — give a useful answer quickly
+
+[Cozy Home Office Setup for Studying | Workspace Inspiration | AI Art Generator | Easy-Peasy.AI](https://images.openai.com/static-rsc-4/MUgwqUveEhTQBtX_mdHsfSK2Zrqy_yygu3ko-Ca6tznOol7x39dPzSpdmsQRCtVqnjrps1-HFK8HYgFhOkwdV0_OSLZun0A-QGE0GoSU7QUOiVUC4rp7nId89cqGryj2rwf82Co0-CzTSxJIlrmQ4ZMAY5feME9C4NpnpCGXZcY?purpose=inline)
+
+[easy-peasy.ai](https://easy-peasy.ai/ai-image-generator/images/cozy-home-office-setup-for-studying-workspace-inspiration?utm_source=chatgpt.com)
+
+Suppose you ask, “What is around me?”
+
+This feature needs to understand the overall scene, so it may require more processing than a simple object lookup.
+
+The efficient approach is to capture a fresh frame, send it through a suitable vision model, request a concise description and start speaking as soon as a useful result is ready.
+
+For example:
+
+“You are facing a desk with a laptop and books. A chair is in front of the desk, and a window is to the right.”
+
+The application should not wait for a long essay when a short description is sufficient. It must also avoid claiming that objects or relationships exist when the image does not support them.
+
+# 3. Why OmniLens might still be slow
+
+There are several possible bottlenecks. Antigravity should measure which ones actually affect your project.
+
+| Problem                      | What it means                                    | Appropriate correction                     |
+| ---------------------------- | ------------------------------------------------ | ------------------------------------------ |
+| Model loads repeatedly       | The AI starts from scratch for requests          | Load once and reuse                        |
+| Too many API calls           | The same image is processed unnecessarily        | Remove redundant processing                |
+| Large image uploads          | Sending frames takes too long                    | Optimise image encoding and resolution     |
+| Slow remote model            | Network or server delays dominate                | Evaluate a faster model or local inference |
+| Old frames pile up           | Results arrive after the camera has moved        | Use a bounded, latest-frame queue          |
+| OCR is unnecessarily complex | General AI is used for ordinary text recognition | Evaluate a suitable dedicated OCR engine   |
+| Speech starts late           | Text is ready, but audio takes too long to begin | Optimise speech startup and playback       |
+| Too much spoken information  | The user waits for a long response               | Prioritise concise, useful speech          |
+
+Notice something important, bro: we should not optimise all these things blindly. First measure the time spent in each stage, then fix the biggest bottleneck.
+
+# 4. Understanding the response-time targets
+
+These are proposed engineering goals, not results already measured in your project.
+
+Find Object
+
+## 0.3–0.8 s
+
+Target for a first useful result with common, supported objects.
+
+Read Text
+
+## 0.3–1.0 s
+
+Target for a first useful OCR result on clear, short text.
+
+Describe Surroundings
+
+## 0.5–1.5 s
+
+Target for a concise description of a typical scene.
+
+Live Detection
+
+## 15–30 FPS
+
+Target for continuous detection on suitable hardware. FPS means frames processed per second.
+
+The timings above describe the first useful result, not necessarily the time required to finish speaking a long answer. They depend on the model, hardware, network and image complexity.
+
+# 5. How we can make the system feel even faster
+
+One useful technique is to separate the essential answer from optional extra details.
+
+For example, if Find Object locates a bottle, the app can speak the location first, then provide additional information only if useful.
+
+For Read Text, it can begin reading a verified first portion while continuing to process a long document, provided the text order is preserved.
+
+For Describe Surroundings, it can produce a concise, grounded description instead of waiting for a lengthy narrative.
+
+For Live Detection, the visual boxes should update continuously, while speech should be selective and avoid repeatedly announcing every object in every frame.
+
+These techniques improve perceived responsiveness without pretending the entire task has already finished.
+
+# 6. What Antigravity must prove after making changes
+
+Ask it to provide actual measurements for:
+
+- Time from button press or voice request to first useful result.
+- Time from request to first audible words.
+- Median response time and p95 response time (the time within which 95% of requests finish).
+- Live Detection FPS and frame freshness.
+- Recognition accuracy before and after optimisation.
+- Which hardware, models and network conditions were used.
+- Whether the tests used real camera frames or only sample images.
+
+Do not accept a report that merely says “optimised,” “super fast” or “all tests passed” without supporting evidence.
+
+The key idea, bro: OmniLens must minimise unnecessary waiting, not necessary intelligence. We want the application to capture the right image, process it efficiently, return a correct answer and begin speaking promptly. That is how you get genuinely fast accessibility assistance rather than a fast but unreliable demo.

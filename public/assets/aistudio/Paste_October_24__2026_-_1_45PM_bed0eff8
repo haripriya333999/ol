@@ -1,0 +1,2509 @@
+Bro ❤️🔥 Now we’re going to define the complete OmniLens transformation, from the existing application to the full OpenCV 5 + AWS competition-ready project. I’ll explain the purpose of every feature, what must change, how the frontend and backend should communicate, how the AI should make decisions, how voice commands should work while the camera remains active, how OpenCV 5 must be used, how AWS fits into the system, how to test everything, and what evidence the final submission needs.
+
+I’m basing this on the two documents you shared: the OpenCV AI Competition 2026 details and our earlier OmniLens specification.
+
+One important distinction before we start: I have the project specifications and competition information, but I do not yet have your complete source-code repository or ZIP. So I can define the intended changes down to individual modules, functions, API contracts, processing steps, and tests. I cannot honestly say which exact existing lines need editing—or that a particular bug is fixed—until I inspect the actual code.
+
+# OmniLens — Complete implementation and change specification
+
+[Gemini Live nově poradí, kam namířit kameru. Guided Vision pomůže i s drobným písmem](https://images.openai.com/static-rsc-4/2mKHuLZKKPyxq0pJPnvp0Co9PfQ5voz-MuAzu3f7L_jdlWTZ1BQD_RxoyQ-goZpqkHDBMa6l0YG3s2w76qsdEvWmJ-j44Faf5KDx07_gAcVuT9oCL-F65WZRiKBR0MLmHASS-s1GHdvZpM-UcN98Och1mLLtvs7geQd5v05YeWg?purpose=inline)
+
+# OmniLens
+
+AI-Powered Everyday Visual Assistance
+
+Tagline: Understand your world. Through sound.
+
+A camera-based assistant that interprets supported visual information, responds to spoken requests, and gives useful spoken guidance to blind and low-vision users.
+
+See
+
+OpenCV 5 processing, object detection, OCR and image analysis.
+
+Understand
+
+Interpret results, confidence, position and uncertainty.
+
+Listen
+
+Accept spoken commands without forcing the user to navigate the screen.
+
+Speak
+
+Deliver concise results, instructions, warnings and recovery messages.
+
+## 1. First, understand exactly what we are building
+
+OmniLens should not be just an ordinary object-detection website, a chatbot with a camera, or a collection of unrelated AI buttons.
+
+It should behave as one continuous, voice-controlled visual assistant.
+
+The user opens OmniLens, grants camera and microphone permission, and can speak naturally. The camera captures the visual scene. OpenCV 5 processes the relevant frame. The appropriate vision model or OCR component analyzes it. The application evaluates the result and speaks a response.
+
+If the user asks it to find something that is not visible, OmniLens should not simply say “not found” and stop. It should decide what to do next, guide the user to adjust the camera, analyze another frame, and verify whether the requested object has appeared.
+
+That last behaviour is especially important for our intended Agentic Vision approach.
+
+### The complete experience
+
+1\. Camera and microphone
+
+Capture a frame and receive a voice command.
+
+2\. OpenCV 5
+
+Validate, decode, preprocess, crop and measure the image.
+
+3\. Vision components
+
+YOLO for supported objects; EasyOCR for text; suitable additional models for specialized tasks.
+
+4\. Decision engine
+
+Decide whether to answer, retry, request a new view, report uncertainty or stop.
+
+5\. Spoken response
+
+Give the result, then continue listening or analyzing as appropriate.
+
+The key design rule is that each component has a clear responsibility. OpenCV does image processing; the detector detects objects; OCR extracts text; the decision engine controls the workflow; the voice controller interprets commands; the speech manager controls what gets spoken; and AWS runs a meaningful part of the actual vision workload.
+
+We should retain your existing React/Vite frontend, Python/FastAPI backend, YOLO model, and EasyOCR integration wherever they are suitable. We should repair and extend the current project rather than rebuild everything without a reason.
+
+# 2. What changes are needed overall?
+
+These are the major work areas. Each one is explained in detail in the following sections.
+
+| Area                     | Required change                                                                                                 |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| Existing frontend        | Make the interface genuinely accessible and support persistent camera sessions and voice-driven task switching. |
+| Camera manager           | Capture, validate and manage frames reliably without unnecessary duplicate processing.                          |
+| Voice controller         | Map spoken commands to the correct action, including commands during live detection.                            |
+| OpenCV 5 pipeline        | Make OpenCV 5 perform substantive, measurable image/video processing.                                           |
+| Object detection         | Stabilize the existing YOLO integration and report only supported detections.                                   |
+| Scene description        | Convert multiple visual results into concise, useful spoken summaries.                                          |
+| Find Object              | Build an iterative search-and-verify workflow that reacts to new camera frames.                                 |
+| OCR                      | Improve image preprocessing, text extraction, reading order and uncertainty handling.                           |
+| Live detection           | Process frames continuously at a controlled rate and prevent repeated announcements.                            |
+| Spatial guidance         | Translate bounding boxes into understandable relative image positions.                                          |
+| Obstacle awareness       | Highlight potentially relevant detections without pretending that 2D imagery proves safe navigation.            |
+| Product and sign reader  | Add a specialized workflow around OCR and, if implemented, barcode recognition.                                 |
+| Currency recognition     | Add a separately validated Indian banknote recognition capability.                                              |
+| Person and activity cues | Detect presence and only those visible actions supported by the implemented model.                              |
+| Speech manager           | Prioritize, queue, suppress, repeat and interrupt speech correctly.                                             |
+| Backend API              | Define consistent endpoints, request formats, response formats, error handling and timeouts.                    |
+| AWS deployment           | Run a real OpenCV 5 image/video workload on AWS and connect it to the application.                              |
+| Testing                  | Measure correctness, latency, recovery, voice interaction and end-to-end task success.                          |
+| Submission               | Prepare the report, diagram, judge-accessible code, working demonstration, video and measured evidence.         |
+
+Important: These are the intended changes, not a claim that every feature is currently implemented. Specialized currency, activity and fine-grained object recognition may require extra models, suitable datasets or additional implementation beyond the existing YOLO/EasyOCR setup.
+
+# 3. The four primary modes and how each must work
+
+The four primary experiences remain:
+
+1. Describe My Surroundings
+2. Find Object
+3. Read Text
+4. Live Detection
+
+The supporting features should be integrated into these modes wherever possible instead of creating a confusing screen full of separate buttons.
+
+## 3.1 Describe My Surroundings
+
+### Purpose
+
+The user asks:
+
+- “Describe.”
+- “What is around me?”
+- “Tell me what you see.”
+- “Describe my surroundings.”
+
+OmniLens should analyze the current camera view and speak a short, useful summary.
+
+### What must happen internally
+
+1. Capture a frame. Obtain a valid image from the active camera and record its dimensions and capture time.
+2. Validate the frame with OpenCV 5. Check that it decoded correctly and has usable dimensions. If it is severely blurred, empty or otherwise unsuitable, handle that condition instead of blindly continuing.
+3. Prepare the image. Resize it to the model's expected input size when appropriate. Apply contrast enhancement or other preprocessing only when it is useful and tested.
+4. Run object detection. Pass the frame through the existing YOLO model. Obtain the detected class, bounding box and confidence for each detection.
+5. Filter and interpret. Remove invalid boxes and apply documented confidence rules. Calculate each object's approximate image position.
+6. Generate the summary. Group the relevant results and prioritize information the user can act on. Avoid listing every low-value detection.
+7. Speak the result. Pass the summary to the shared speech manager so it does not overlap with another announcement.
+
+### Example
+
+Suppose the camera detects a chair near the lower-left part of the frame, a table near the center, and a person on the right.
+
+A possible response is:
+
+> “I can see a table near the center, a chair toward your left, and a person on your right.”
+
+This is an example of the intended behaviour, not a claim that the current model will detect these objects correctly in every scene.
+
+### How the summary should be generated
+
+The description logic should consider:
+
+- Which objects are detected with sufficient confidence.
+- Which objects are important for the current task.
+- Whether several detections refer to the same class.
+- Where each object appears in the image.
+- Whether the scene contains uncertain or conflicting results.
+- Whether the user asked for a general description or a specific detail.
+
+For example, if the frame contains six chairs, the system should normally say “Several chairs are visible,” rather than repeatedly listing six nearly identical detections.
+
+### What must not happen
+
+The system should not invent details such as:
+
+- The colour of an object if that information was not analyzed reliably.
+- A person's intention or identity.
+- The exact physical distance of a chair from the user based only on its bounding box.
+- A precise room layout from one incomplete camera frame.
+- Objects the model has not actually detected.
+
+A scene captioning model could be added later if useful, but the first version can produce grounded descriptions from verified detections. A language model must not be allowed to turn uncertain detections into confident facts.
+
+### What should change in the implementation?
+
+The scene-description workflow should have its own orchestration function, conceptually:
+
+```
+describe_surroundings(frame)
+```
+
+This is a proposed interface, not a verified function in your repository. It should:
+
+1. Accept the current frame.
+2. Call the shared OpenCV processing pipeline.
+3. Call the supported object detector.
+4. Convert detections into structured spatial information.
+5. Generate a concise description.
+6. Return both the structured results and the text to speak.
+
+It should not duplicate camera decoding, image preprocessing or speech logic already handled by shared components.
+
+### How we test it
+
+Prepare test scenes containing common objects, clutter, different lighting, partial occlusion and empty or confusing backgrounds.
+
+Record:
+
+- Whether the important objects were detected.
+- Whether the description accurately represents the detections.
+- Whether spatial wording matches the bounding boxes.
+- Whether unsupported details were avoided.
+- Whether the response is concise enough to be useful when spoken.
+
+## 3.2 Find Object — the flagship feature
+
+This is the most important feature to develop carefully because it connects everyday accessibility with the competition's Agentic Vision focus.
+
+### Purpose
+
+The user says:
+
+> “Find my bottle.”
+
+Or:
+
+> “Where is the door?”
+
+Or:
+
+> “Find my bag.”
+
+OmniLens should search for the requested target in the camera view. If the target is not found, it should guide the user to adjust the camera and examine the new view.
+
+The system must distinguish between:
+
+- Found: credible evidence indicates that the requested target is visible.
+- Not found in this frame: no suitable detection was returned.
+- Uncertain: the evidence is weak or ambiguous.
+- Unsupported: the available model cannot reliably recognize that target.
+- Invalid frame: the image cannot be processed.
+- Cancelled: the user requested that the search stop.
+
+These states must not be treated as interchangeable.
+
+### Exact workflow
+
+Step 1 — Receive the target
+
+The voice controller extracts a target such as `bottle`, `bag` or `door`.
+
+Step 2 — Analyze the current frame
+
+OpenCV 5 validates and prepares the image. The appropriate detector returns candidate objects and bounding boxes.
+
+Step 3 — Evaluate the evidence
+
+Check whether the requested target is supported, sufficiently confident, and actually represented by a suitable detection.
+
+Step 4 — Choose the next action
+
+If found, report its approximate position. If uncertain, seek another view or request confirmation. If missing, ask the user to move the camera and retry.
+
+Step 5 — Verify and finish
+
+Analyze a new frame, update the decision and stop when the target is found, the retry budget is exhausted or the user cancels.
+
+### Example: the bottle is not initially visible
+
+1. User: “Find bottle.”
+2. OmniLens: “Looking for a bottle.”
+3. The current frame does not contain a sufficiently confident bottle detection.
+4. OmniLens: “I can’t see a bottle clearly. Slowly turn the camera to your right.”
+5. The user moves the camera.
+6. The next frame is captured and analyzed.
+7. The detector identifies a bottle near the right side of the image.
+8. The decision engine verifies that the target and detection are compatible.
+9. OmniLens: “A bottle is visible toward the right side of the camera view.”
+10. The search stops unless the user asks to continue.
+
+This is meaningfully different from a single image caption: the result of one perception step determines the next action.
+
+### Handling a difficult target
+
+Suppose the user says “Find door handle.”
+
+A generic object detector might recognize a door but not its handle. The system must not pretend that detecting the door proves the handle was found.
+
+A sensible response would be:
+
+> “I can see a door, but I can’t identify its handle reliably. Move the camera closer to the door so I can inspect it.”
+
+If handle recognition is important to the final product, we need a model trained or evaluated specifically for handles, suitable training data, and tests demonstrating that the model can recognize them under realistic conditions.
+
+The same rule applies to latches, window grills, small buttons, gestures and other fine-grained objects.
+
+### How the search decision should be implemented
+
+The search controller needs explicit state, including:
+
+- Requested target.
+- Current search status.
+- Number of attempts.
+- Maximum retry count.
+- Last analyzed frame or frame identifier.
+- Best candidate detection so far.
+- Last user instruction.
+- Cancellation status.
+- Search timeout.
+- Any unsupported-target explanation.
+
+The controller should have bounded retries and timeouts. It must not loop forever if the target never appears.
+
+It should also avoid assuming that two frames are independent evidence if they are practically identical. When a new view is requested, the controller should verify that it is processing a fresh frame.
+
+### A proposed decision structure
+
+```
+if search_was_cancelled:
+    stop_search()
+elif frame_is_invalid:
+    request_usable_frame()
+elif target_is_unsupported:
+    explain_limitation()
+elif target_is_found_with_sufficient_evidence:
+    announce_position()
+    finish_search()
+elif retry_budget_is_exhausted:
+    explain_not_found()
+    finish_search()
+else:
+    request_new_view()
+    analyze_next_frame()
+```
+
+This is illustrative pseudocode. The actual implementation must be adapted to the existing backend and tested.
+
+### Why this matters for Agentic Vision
+
+The official competition description says visual results must influence a subsequent plan, tool call, action or request for human approval. A fixed image description alone is not enough.
+
+For OmniLens, we should record an execution trace showing:
+
+- The original target request.
+- The frame analyzed.
+- OpenCV processing performed.
+- Detection results and confidence.
+- The decision selected.
+- The spoken instruction or next action.
+- The result from the subsequent frame.
+- Why the workflow stopped.
+
+This evidence will make the agentic behaviour understandable to judges.
+
+## 3.3 Read Text
+
+### Purpose
+
+The user says:
+
+- “Read text.”
+- “Read this sign.”
+- “Read the label.”
+- “Read the notice.”
+- “Read this document.”
+
+OmniLens should extract visible text, organize it sensibly and read it aloud.
+
+### Processing pipeline
+
+1. Capture the current camera frame.
+2. Use OpenCV 5 to validate the image and check whether it is suitable for OCR.
+3. Prepare the image, potentially using grayscale conversion, resizing, contrast enhancement, denoising or perspective correction where appropriate.
+4. Run EasyOCR on the prepared image.
+5. Collect the recognized text regions, their coordinates and the OCR confidence values available from the library.
+6. Arrange text regions in a reasonable reading order.
+7. Remove accidental duplicates where appropriate, without deleting legitimate repeated words or lines.
+8. Decide whether the result is readable enough to announce.
+9. Read the extracted text using the shared speech manager.
+
+### Why preprocessing matters
+
+OCR may struggle with:
+
+- Small text.
+- Motion blur.
+- Low contrast.
+- Shadows and glare.
+- Perspective distortion.
+- Curved packaging.
+- Dense paragraphs.
+- Text partly hidden by another object.
+- Unusual fonts or decorative backgrounds.
+
+OpenCV preprocessing should improve the input when possible, but it cannot guarantee correct recognition. Every transformation should be tested against the original image; aggressive sharpening or thresholding can make text worse.
+
+### Example
+
+Suppose a sign visibly says:
+
+> ROOM 204 — LABORATORY
+
+A good result is:
+
+> “The sign reads: Room 204, Laboratory.”
+
+If the image is blurred and only “ROOM 2…” is readable, the application should say:
+
+> “The text is not clear enough to read completely. Hold the camera steady and move it closer.”
+
+It must not silently fill in missing characters.
+
+### Reading long text
+
+For a long document, OmniLens should not try to speak several pages without giving the user control.
+
+The text-reading session should support:
+
+- Start reading.
+- Pause.
+- Resume.
+- Repeat the last segment.
+- Read the next segment.
+- Stop reading.
+- Report when no readable text is found.
+
+If page segmentation or multi-column layout handling is not implemented, the system should communicate that limitation rather than claiming to reproduce the document perfectly.
+
+### Technical changes
+
+The OCR workflow should be separated from camera handling and speech playback. Conceptually:
+
+```
+read_text_from_frame(frame)
+```
+
+It should return structured data such as the recognized text, text regions, confidence information and processing status. The speech layer can then decide how to read the result.
+
+The API should distinguish a valid image containing no readable text from an image that failed to decode or an OCR service that failed.
+
+### Tests
+
+Include printed signs, product labels, documents, handwritten or decorative text if supported, small text, blurred text, low light, reflections and images containing no text.
+
+Measure character or word accuracy where ground-truth text is available. Also measure whether the spoken reading order is reasonable and whether uncertainty is handled correctly.
+
+## 3.4 Live Detection
+
+### Purpose
+
+This is the continuous-camera mode.
+
+The user says:
+
+> “Live detection.”
+
+OmniLens keeps analyzing the camera stream and speaks useful detections as the user points the camera around.
+
+The user should also be able to say:
+
+> “Describe.”
+
+> “Find bottle.”
+
+> “Read text.”
+
+> “Obstacle.”
+
+without having to leave the live camera screen or restart the entire application.
+
+### What must happen
+
+1. Start the camera stream.
+2. Receive frames continuously.
+3. Select frames for analysis at a controlled rate.
+4. Process selected frames with OpenCV 5.
+5. Run the detector on the frames chosen for inference.
+6. Convert detections into structured results.
+7. Compare new results with recent results.
+8. Decide whether an announcement is useful.
+9. Speak the announcement without flooding the user.
+10. Continue listening for commands.
+11. Stop immediately when the user requests it or a required resource becomes unavailable.
+
+### Why we should not process every frame
+
+A camera can deliver many frames per second, but full object detection and OCR may be much slower. Trying to run every possible operation on every frame can increase latency, consume excessive CPU/GPU resources, overburden the backend and produce overlapping speech.
+
+The application should therefore separate:
+
+- Camera capture rate.
+- Frame preprocessing rate.
+- Object-detection rate.
+- OCR frequency.
+- Speech announcement frequency.
+
+For example, a prototype might analyze a few selected frames per second rather than processing the entire camera stream. The final rate should be selected from measured performance, not assumed in advance.
+
+### Preventing repeated announcements
+
+Imagine a chair remains visible for ten seconds. A naive implementation might announce “Chair on your left” repeatedly.
+
+That is not acceptable for a hands-free assistive interface.
+
+The live-detection manager should track recent detections and suppress repetitive announcements. A repeated detection might become eligible for speech again if:
+
+- The object moves significantly in the frame.
+- The relative position changes meaningfully.
+- The object disappears and later reappears.
+- The user explicitly asks for a description or repeat.
+- The system has a deliberate refresh policy for relevant information.
+
+The announcement manager should use the object class, approximate position, confidence, time since the last announcement and task priority to decide whether to speak.
+
+### Live mode must not block voice commands
+
+This is a critical requirement.
+
+If the backend is busy processing a frame while the user says “Read text,” the application must not ignore the command until the entire live session ends.
+
+The camera manager, command listener and vision worker should have separate responsibilities. A new command should update the active task, cancel or supersede lower-priority work where appropriate, and direct the next suitable frame to the requested workflow.
+
+### A sensible live-mode state model
+
+- `STOPPED` — no live processing.
+- `STARTING` — checking camera and required services.
+- `RUNNING` — live detection is active.
+- `COMMAND_ACTIVE` — a spoken request is being handled while the camera session remains available.
+- `PAUSED` — automatic analysis is paused, but the session may remain open.
+- `ERROR` — a recoverable or unrecoverable resource failure occurred.
+
+These are logical states; the final code may use different names.
+
+### Expected behaviour when the user changes tasks
+
+Suppose the user starts Live Detection and then says “Find bottle.”
+
+The intended sequence is:
+
+1. Keep the camera session active.
+2. Accept the spoken command.
+3. Extract the target `bottle`.
+4. Acknowledge the request: “Looking for a bottle.”
+5. Prioritize the Find Object workflow.
+6. Suppress ordinary live announcements if they would interfere.
+7. Analyze new frames until the bottle is found or the search terminates.
+8. Speak the result.
+9. Return to the appropriate live state if the user has not stopped the session.
+
+The exact return policy should be defined consistently. Our recommended behaviour is to preserve the live session and return to live detection after a task completes, unless the user explicitly stops it or the task requires the session to end.
+
+# 4. Voice control: the feature that connects everything
+
+Bro, this is where OmniLens should feel like a real assistant rather than a website with four buttons.
+
+Your requirement is that the user should be able to keep the camera running and speak a keyword or natural-language request at any time. The system should understand the request, route it to the correct task, provide the result through speech and continue the camera session where appropriate.
+
+## 4.1 Supported voice commands
+
+These are the command families we should implement.
+
+| User says            | Action                                                      |
+| -------------------- | ----------------------------------------------------------- |
+| “Describe”           | Describe the current surroundings.                          |
+| “What is around me?” | Describe the current surroundings.                          |
+| “Live detection”     | Start continuous detection.                                 |
+| “Find bottle”        | Search for a bottle.                                        |
+| “Where is my bag?”   | Search for a bag, subject to supported model classes.       |
+| “Read text”          | Run OCR on the current camera view.                         |
+| “Read this sign”     | Read visible text, preferably from the relevant region.     |
+| “Read label”         | Read product or packaging text.                             |
+| “Currency”           | Run the supported banknote-recognition workflow.            |
+| “Is anyone there?”   | Check for supported person detections.                      |
+| “Obstacle”           | Inspect relevant detections in the lower part of the image. |
+| “Repeat”             | Repeat the most recent appropriate response.                |
+| “Pause”              | Pause the current activity where pausing is supported.      |
+| “Resume”             | Resume the paused activity.                                 |
+| “Stop” or “Cancel”   | Cancel active work and stop speech as appropriate.          |
+
+The application should also recognize reasonable language variations, such as “Can you tell me what is in front of the camera?” or “Could you read what this board says?”
+
+However, natural-language understanding must be bounded. It should not execute an unrelated action merely because a phrase sounds similar to a supported command.
+
+## 4.2 How the command controller should work
+
+The controller should perform the following stages.
+
+1. Receive speech. Use an available speech-recognition mechanism to obtain a text transcript.
+2. Normalize the command. Handle capitalization, punctuation, common phrasing variations and simple recognition errors where safe.
+3. Classify intent. Determine whether the user wants description, object search, OCR, live detection, currency recognition, a status query or a control action.
+4. Extract parameters. For Find Object, identify the target. For reading, identify whether the request concerns general text, a sign or a product label.
+5. Check support. Determine whether the required model, service and input are available.
+6. Route the command. Pass it to the appropriate workflow with a session identifier and cancellation context.
+7. Acknowledge and execute. Speak a brief confirmation when useful, then start the task.
+8. Return the result. Speak the outcome and preserve the live camera session if appropriate.
+
+### The command router must not perform the vision work itself
+
+For example, the voice controller should not contain all the YOLO, OCR and OpenCV logic inside one giant function.
+
+Its responsibility is to decide:
+
+- What the user requested.
+- Which workflow should execute.
+- Which parameters the workflow needs.
+- Whether another task should be paused or cancelled.
+- How the result should be delivered.
+
+The vision workflow performs the actual analysis.
+
+This separation will make the application easier to test and less likely to break when we add a new capability.
+
+## 4.3 What if the command is ambiguous?
+
+Suppose the user says:
+
+> “Find it.”
+
+If the user previously requested a bottle and that search is still clearly active, OmniLens can interpret “it” as the bottle.
+
+But if there is no active or unambiguous previous target, it should ask:
+
+> “What would you like me to find?”
+
+Similarly, if the user says “read that” but the current camera view contains several possible text regions, the system may read the clearest visible text or ask the user to point the camera at the intended sign, depending on the situation.
+
+The key is to avoid silently choosing an arbitrary object.
+
+## 4.4 Keep the microphone available during live detection
+
+The command listener and the vision-processing loop must not be designed as one blocking operation.
+
+The intended behaviour is:
+
+- Camera capture continues.
+- The command listener remains available.
+- Vision processing works on selected frames.
+- Speech recognition handles the user's request.
+- The active task is updated.
+- Lower-priority announcements are suppressed while the user is speaking.
+- The requested task receives priority.
+- The application returns to the appropriate state afterward.
+
+There are practical browser limitations to account for. Browser speech recognition is not supported equally across all browsers, and microphone access depends on permissions and secure contexts. We must test the exact environment in which the final demo will run.
+
+If the browser cannot provide reliable speech recognition, the application should show an accessible fallback rather than pretending that voice control is working.
+
+Possible fallback options include a large microphone control, keyboard-accessible commands, or a suitable speech-recognition service. If audio is sent to an external or cloud service, the application must disclose that clearly.
+
+## 4.5 Voice commands need proper priority
+
+Not all spoken messages have the same importance.
+
+For example:
+
+1. “Stop” must interrupt ongoing activity.
+2. A direct user request should take priority over routine live announcements.
+3. A result needed to complete the user's current task should normally take priority over background descriptions.
+4. Routine detections should be lower priority.
+5. Repetitive status messages should be suppressed.
+
+This is the responsibility of the shared speech manager described next.
+
+# 5. The speech manager: one voice, one controlled queue
+
+If each feature independently starts text-to-speech, several parts of OmniLens can speak at once.
+
+Imagine the following sequence:
+
+- Live Detection says “Chair on your left.”
+- Find Object says “Looking for a bottle.”
+- OCR starts reading a paragraph.
+- The user says “Stop.”
+
+If each component manages speech separately, these messages may overlap, interrupt each other unpredictably or continue after cancellation.
+
+We need one central Speech and Alert Manager.
+
+## 5.1 Its responsibilities
+
+The manager should:
+
+- Queue speech messages.
+- Assign priorities.
+- Avoid simultaneous speech playback.
+- Suppress duplicates.
+- Cancel queued messages when the task is cancelled.
+- Stop current playback when the user explicitly says “Stop.”
+- Remember the last response for the Repeat command.
+- Handle pause and resume where supported.
+- Report speech errors accessibly.
+- Avoid talking over the user's voice command.
+- Prevent stale results from being spoken after a newer request supersedes them.
+
+## 5.2 Message lifecycle
+
+Each speech message should conceptually have:
+
+- Message ID.
+- Text.
+- Source task.
+- Priority.
+- Creation time.
+- Session ID.
+- Cancellation status.
+- Whether it has already been spoken.
+- Whether it is suitable for repetition.
+
+The manager should discard a message if it belongs to a cancelled or superseded task.
+
+For example, if the user says “Find bottle” and immediately changes the request to “Read text,” the system should not later announce an obsolete bottle-search result as if it were the current task.
+
+## 5.3 Speech should be useful, not excessive
+
+Good announcements are concise and grounded.
+
+Good:
+
+> “A chair is visible toward your left.”
+
+Less useful:
+
+> “I have processed a camera frame and detected a possible object that the model has classified as a chair with a certain confidence value.”
+
+Technical details belong in diagnostic logs, not in every spoken message.
+
+However, when uncertainty is meaningful, the user should hear it:
+
+> “There may be a chair toward your left, but I’m not certain.”
+
+The actual wording should depend on the measured reliability of the model and the importance of the task.
+
+## 5.4 What must be tested?
+
+- No overlapping speech from independent features.
+- Stop interrupts speech promptly.
+- Repeat speaks the correct most recent result.
+- Pause and Resume behave consistently.
+- Cancelled tasks do not deliver stale announcements.
+- Speech recognition can resume after speech playback.
+- Long OCR text can be paused and stopped.
+- Browser speech failure produces an understandable fallback.
+- Live detections do not flood the speech queue.
+
+# 6. Camera management and frame lifecycle
+
+Before changing AI models, we need a reliable camera lifecycle. All four modes depend on it.
+
+## 6.1 What the camera manager should control
+
+The camera component should be responsible for:
+
+- Requesting camera permission.
+- Starting and stopping the stream.
+- Tracking whether the stream is active.
+- Capturing a current frame.
+- Detecting when no frame is available.
+- Preventing stale frames from being mistaken for current ones.
+- Managing frame timestamps and IDs.
+- Releasing camera resources when the session ends.
+- Reporting permission or device errors.
+- Coordinating capture with live detection and on-demand tasks.
+
+The camera manager should not decide whether a bottle has been found or how an OCR result should be read aloud.
+
+## 6.2 Why frame IDs and timestamps matter
+
+Suppose the user asks “Find bottle” while the live-detection loop has already captured a frame.
+
+If the application accidentally reuses an old image, it may announce a result that no longer matches the user's current view.
+
+Each captured frame should therefore have a unique identifier or timestamp. The backend should return enough metadata for the application to associate results with the request that generated them.
+
+For an on-demand task, we should know:
+
+- Which frame was submitted.
+- When it was captured.
+- When processing began.
+- When processing ended.
+- Which task requested it.
+- Whether a newer request superseded it.
+
+## 6.3 Avoid unnecessary copies and giant requests
+
+A browser may capture an image as a canvas, blob or encoded image. The exact format should be chosen after inspecting the existing frontend and backend.
+
+The general requirements are:
+
+- Use a documented request format.
+- Limit accepted image size.
+- Reject malformed or unsupported payloads.
+- Avoid repeatedly encoding the same frame when it is unnecessary.
+- Avoid sending full-resolution images when a smaller version is sufficient for the model.
+- Preserve sufficient image detail for OCR and small-object recognition.
+- Never assume that a file is valid merely because it has an image extension.
+
+We should not reduce every image to the same tiny size: a resolution suitable for broad object detection may be inadequate for reading a small product label. The processing pipeline should support task-appropriate image sizes.
+
+## 6.4 Camera failure and recovery
+
+If the camera becomes unavailable during live detection:
+
+1. Stop scheduling new vision requests.
+2. Cancel or finish the current request safely.
+3. Inform the user through speech if possible.
+4. Show an accessible error state.
+5. Offer a way to restart the camera.
+6. Ensure that old frames are not used as though they were current.
+
+When the user cancels the session, stop the capture stream and release resources.
+
+# 7. OpenCV 5: the actual competition-critical change
+
+Bro, this part must be handled carefully.
+
+The competition rules in your document require OpenCV 5 to be used for substantive image or video analysis, and a meaningful component to run on AWS.
+
+Installing OpenCV, importing `cv2`, or using it for a trivial conversion without demonstrating its role in the real pipeline would be weak evidence of compliance.
+
+We need OpenCV 5 to perform real work that improves, prepares, analyzes or measures the images used by OmniLens.
+
+## 7.1 Where OpenCV belongs
+
+OpenCV should be used before and around the detector/OCR stages.
+
+Raw camera frame
+
+A captured image or frame from the user's camera.
+
+OpenCV 5 input validation
+
+Decode, validate dimensions, check channels and reject invalid input.
+
+OpenCV 5 preprocessing
+
+Resize, convert colour space, enhance contrast or crop relevant regions where useful.
+
+Object pipeline
+
+Prepare detector input, map bounding boxes to original coordinates and analyze positions.
+
+OCR pipeline
+
+Prepare text regions and compare original and processed image quality.
+
+Structured results and measurements
+
+Detections, positions, quality indicators, processing time and traceable decisions.
+
+## 7.2 Required OpenCV operations
+
+The following operations should be considered for the implementation. We should use those that make sense for the actual workload and prove their usefulness through tests.
+
+| Operation                | Why it is needed                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------------ |
+| Image decoding           | Convert the received image bytes into a usable image array.                          |
+| Input validation         | Detect empty, malformed or unsupported frames before model inference.                |
+| Resize                   | Control model input dimensions and processing cost while preserving required detail. |
+| Colour-space conversion  | Produce the channel format expected by the next processing stage.                    |
+| Contrast enhancement     | Improve visibility in some low-contrast scenes where evaluation shows a benefit.     |
+| Denoising                | Reduce certain forms of image noise where useful.                                    |
+| Cropping                 | Isolate a relevant image region for a targeted operation.                            |
+| Perspective correction   | Potentially improve OCR on angled signs or documents.                                |
+| Frame extraction         | Obtain frames from video or a live-camera processing pipeline.                       |
+| Bounding-box processing  | Map and interpret object coordinates consistently.                                   |
+| Image-quality assessment | Identify certain unusable or degraded frames.                                        |
+| Timing and profiling     | Measure processing latency and compare alternative configurations.                   |
+
+Do not blindly apply every transformation to every image. For example, thresholding may improve a high-contrast document but damage a coloured package or photograph. We should keep the original frame and compare results when evaluating a preprocessing method.
+
+## 7.3 Preserve coordinate consistency
+
+Suppose the original camera image is 1280 × 720 pixels, but the detector processes a resized image of 640 × 360 pixels.
+
+A bounding box reported in the resized image must be mapped correctly to the original image before calculating positions or drawing overlays on the original frame.
+
+If the transformation preserves aspect ratio, coordinate scaling can be straightforward. If padding, cropping or letterboxing is used, the coordinate mapping must account for those operations too.
+
+Incorrect coordinate mapping can produce wrong spatial announcements even when object detection itself is correct.
+
+## 7.4 Use OpenCV to improve the workflow, not merely decorate it
+
+For example:
+
+- If the input frame is unusable, do not waste time running YOLO and EasyOCR on it.
+- If a sign is detected and a text-reading request is active, crop the relevant region and send that crop to OCR.
+- If the requested target is missing, use the result to guide the next camera action.
+- If preprocessing is slower but does not improve recognition, do not enable it by default.
+- If a new configuration improves OCR on the documented test set, record the measured improvement and its trade-offs.
+
+This gives OpenCV a meaningful role in the application rather than treating it as a competition requirement added at the last minute.
+
+## 7.5 Version and compatibility must be verified
+
+Before changing the dependency file, verify the actual OpenCV 5 distribution, version and Python/platform compatibility available for the deployment environment.
+
+Do not assume that an arbitrary package version exists just because it follows a plausible version-number pattern. We should install the intended supported package in a clean Python 3.12 environment, confirm the reported runtime version, and run the same smoke tests locally and on AWS.
+
+If the desired OpenCV 5 build cannot be installed in the chosen environment, we must resolve that before claiming compliance. A different OpenCV version should not silently be presented as OpenCV 5.
+
+The final dependency lock or pinned requirements must match the version that actually works.
+
+# 8. Existing YOLO integration: keep it, stabilize it, then extend it
+
+Your previous project specification says the existing backend uses YOLO, with model names including `yolo11n` or `yolo11s`. We should inspect which model is actually present and loaded before modifying the code.
+
+## 8.1 What YOLO should do
+
+YOLO provides object detections, typically including:
+
+- Class label.
+- Bounding-box coordinates.
+- Confidence score.
+
+The surrounding application should transform these results into structured data that the rest of OmniLens can use.
+
+For example, a normalized detection object could contain:
+
+```
+{
+  "class_name": "bottle",
+  "confidence": 0.91,
+  "bbox": {
+    "x1": 310,
+    "y1": 145,
+    "x2": 420,
+    "y2": 360
+  },
+  "position": "right"
+}
+```
+
+This is an illustrative response, not a measured detection from your model.
+
+The implementation must document whether bounding-box coordinates refer to the original image or a processed image. The example assumes original-image coordinates.
+
+## 8.2 Model loading must be reliable
+
+The previous status you shared included `model_ready: false`. If that still describes the current application, it is a foundational issue.
+
+The application should not behave as if detection is available when the model has failed to load.
+
+On startup, the backend should:
+
+1. Read the configured model path.
+2. Verify that the required model file is available.
+3. Load the model.
+4. Perform a small inference smoke test where appropriate.
+5. Record a meaningful readiness status.
+6. Expose that status through a health or readiness endpoint.
+7. Return a clear error if an inference request arrives while the model is unavailable.
+
+The same principle applies to EasyOCR. A configuration setting that says OCR is enabled is not proof that the OCR reader initialized successfully.
+
+## 8.3 Handle model classes honestly
+
+A detector can only be expected to recognize the classes it supports, subject to its training data and real-world performance.
+
+If the loaded model supports a `bottle` class, that does not automatically mean it can detect:
+
+- Bottle caps.
+- A tiny bottle label.
+- A specific brand.
+- A door handle.
+- A banknote denomination.
+- Every human hand gesture.
+- Every activity performed by a person.
+
+These require appropriate model support and evaluation.
+
+The Find Object controller should check the supported class vocabulary and distinguish an unsupported target from an ordinary failed search.
+
+## 8.4 Confidence thresholds
+
+The backend should apply documented confidence thresholds. These should be configurable and validated on test data rather than selected arbitrarily.
+
+Too high a threshold can cause many valid objects to be missed. Too low a threshold can lead to incorrect announcements.
+
+A single global threshold may also be unsuitable for every class and task. We should start with a clear baseline and change it only when evaluation demonstrates a benefit.
+
+## 8.5 Performance and memory
+
+The model must be loaded once per worker or process where appropriate, rather than repeatedly loaded for every camera frame.
+
+We must also be careful with worker count. Loading a separate YOLO model in multiple processes can multiply memory usage. This matters because your earlier Render backend failed under a 512 MiB memory limit.
+
+The eventual AWS configuration should be selected using measured model memory requirements, CPU/GPU availability, expected request concurrency and actual inference latency.
+
+# 9. Spatial guidance: converting detections into understandable language
+
+Object detection tells us what the model sees. Spatial guidance tells the user where that object appears in the camera view.
+
+This is useful, but it must be expressed accurately.
+
+## 9.1 Divide the image into regions
+
+A simple first implementation can divide the image into a grid:
+
+- Left, center and right.
+- Upper, middle and lower.
+
+The position of a detected object can be estimated from its bounding-box centre.
+
+For a bounding box with coordinates \\(x_1,y_1,x_2,y_2\\), calculate:
+
+\\[ x_c = \frac{x_1+x_2}{2}, \qquad y_c = \frac{y_1+y_2}{2} \\]
+
+For an image of width \\(W\\) and height \\(H\\), the normalized coordinates are:
+
+\\[ x_n = \frac{x_c}{W}, \qquad y_n = \frac{y_c}{H} \\]
+
+These normalized values help determine which region of the image contains the object.
+
+The actual region boundaries must be defined and tested. Objects near a boundary should not cause the wording to fluctuate constantly from “left” to “center” between nearly identical frames.
+
+## 9.2 Use natural spoken positions
+
+Suitable wording includes:
+
+- “Toward the left side of the image.”
+- “Near the center.”
+- “Toward the right side.”
+- “Near the upper part of the image.”
+- “In the lower part of the camera view.”
+- “A little to your right in the current view.”
+
+We should avoid clock-face directions because we previously chose left/right/center and upper/lower positioning for OmniLens.
+
+## 9.3 Image position is not physical distance
+
+This distinction is extremely important.
+
+A bounding box can tell us where an object appears in the image, but it cannot by itself establish how many centimetres or metres away that object is.
+
+A large object may be nearby, but it may also simply be physically large. A small object may be far away, but it may also be a small object.
+
+Therefore, OmniLens must not claim:
+
+> “The chair is exactly two metres away.”
+
+or:
+
+> “The path ahead is definitely clear.”
+
+unless the system has a validated method that genuinely supports those claims.
+
+Distance estimation would require additional evidence such as a suitable depth sensor, a validated depth model or a calibrated method with appropriate assumptions and testing.
+
+# 10. Obstacle awareness: useful guidance without unsafe promises
+
+This feature should be built on top of object detection and spatial analysis rather than treated as a guaranteed navigation system.
+
+## 10.1 Intended behaviour
+
+The user says:
+
+> “Obstacle.”
+
+or:
+
+> “What is ahead?”
+
+OmniLens inspects the relevant part of the camera view and reports supported detections that may matter to the user.
+
+For example, if a chair is detected in the lower-middle region, the application might say:
+
+> “A chair is visible in the lower center of the camera view.”
+
+This is a grounded image observation. It is not proof that the chair is in the user's walking path or at a particular distance.
+
+## 10.2 What must change technically?
+
+The workflow should:
+
+1. Capture a fresh frame.
+2. Run the shared OpenCV preprocessing pipeline.
+3. Run the available detector.
+4. Identify detections within the configured image region.
+5. Check their confidence and relevance.
+6. Generate a concise, qualified announcement.
+7. Use the speech manager to prioritize the result.
+8. Avoid repetitive announcements while the scene remains unchanged.
+
+The relevant region could be the lower part of the frame, but that is only a heuristic. Camera angle, mounting height and orientation all affect its meaning.
+
+## 10.3 What this feature should not claim
+
+It should not promise:
+
+- Reliable detection of every obstacle.
+- Accurate obstacle distance without appropriate depth estimation.
+- Safe path planning.
+- Detection of invisible or occluded hazards.
+- Replacement of a cane, guide dog or established mobility practices.
+
+For the competition, it is better to demonstrate a limited, honestly evaluated obstacle-awareness feature than to make broad safety claims unsupported by evidence.
+
+# 11. Product and sign reader
+
+This should be an extension of the Read Text workflow, with additional task-specific processing.
+
+The aim is to help the user read packaging, product labels, room signs, notices and similar text encountered in everyday life.
+
+## 11.1 Product-label reading
+
+When the user says “Read label,” OmniLens should:
+
+1. Capture a frame.
+2. Check image quality.
+3. Detect relevant objects or text regions where suitable model support exists.
+4. Crop the useful region if appropriate.
+5. Apply tested OpenCV preprocessing.
+6. Run OCR.
+7. Organize the recognized text.
+8. Speak the readable content.
+9. Report incomplete or uncertain results.
+
+For example, the system might read a product name, a visible printed label or a clearly readable instruction.
+
+It must not infer a product's ingredients, expiry date or safety information if the corresponding text is not actually visible and reliably recognized.
+
+## 11.2 Barcode recognition is a separate capability
+
+If we decide to support barcode scanning, that requires a barcode-detection/decoding implementation and tests for the barcode formats we intend to support.
+
+Reading a barcode does not automatically identify a product unless we have a suitable product database or lookup service.
+
+If an external lookup is used, the response must distinguish between:
+
+- Text read directly from the package.
+- Information decoded from a barcode.
+- Information retrieved from an external database.
+- Information that could not be verified.
+
+We should not invent a product name when a barcode lookup fails.
+
+## 11.3 Why this belongs in the shared OCR architecture
+
+General text reading and product-label reading have much in common. Both need image validation, OpenCV processing, OCR, confidence handling and speech.
+
+We should reuse those components and add a product-specific orchestration layer rather than implement an entirely separate image-processing stack.
+
+# 12. Currency recognition
+
+We previously included currency recognition in the feature set. The initial target should be recognition of supported Indian banknote denominations, not counterfeit detection.
+
+This capability requires additional model support and evaluation. It should not be claimed as complete merely because YOLO and EasyOCR are installed.
+
+## 12.1 Intended user experience
+
+The user says:
+
+> “Currency.”
+
+or:
+
+> “Identify this note.”
+
+OmniLens captures an image and attempts to recognize the denomination of the visible banknote.
+
+Possible outcomes:
+
+- A denomination is recognized with sufficient evidence.
+- The image is unclear.
+- The note is partly hidden.
+- The model is uncertain between candidates.
+- The input does not appear to contain a supported banknote.
+- The required model is unavailable.
+
+The response should reflect the actual outcome.
+
+## 12.2 What needs to be implemented?
+
+- Define the supported currency and denominations.
+- Obtain or prepare a suitable labeled dataset.
+- Select or train a model that can recognize those denominations.
+- Include varied orientations, lighting, backgrounds and partial occlusions in evaluation.
+- Decide how the system handles both sides of a note.
+- Set documented confidence and uncertainty rules.
+- Integrate the model into the backend and shared speech manager.
+- Measure recognition performance on held-out examples.
+
+If no appropriate currency model exists in the current repository, this is a separate implementation task.
+
+## 12.3 Responsible wording
+
+The application may say:
+
+> “This appears to be a ₹500 note.”
+
+when the evidence supports that response.
+
+It should not say:
+
+> “This note is genuine.”
+
+Denomination recognition does not establish authenticity. Counterfeit detection is a different and more demanding task, and it is not part of the proposed initial scope.
+
+# 13. Person presence and basic activity cues
+
+This feature should remain limited to visual observations the implemented model can reliably support.
+
+## 13.1 Person presence
+
+The system can use the existing detector to report a supported person detection.
+
+For example:
+
+> “A person is visible toward the right side of the camera view.”
+
+The system should not identify the person or infer sensitive personal attributes.
+
+## 13.2 Basic activity cues
+
+If we want to support descriptions such as “a person is seated” or “a person is holding an object,” we need to determine whether the selected model can actually recognize those actions or relationships.
+
+An ordinary object detector generally detects object classes and boxes. It does not automatically understand every action, hand gesture or relationship between a person and an object.
+
+Possible implementation approaches include:
+
+- A suitable pretrained model with demonstrated support for the target actions.
+- A dedicated pose or action-recognition model.
+- A task-specific detector trained on labeled examples.
+- A carefully limited set of visible cues that the current model can support.
+
+The correct choice depends on the current code, available hardware and evaluation requirements.
+
+## 13.3 Avoid unsupported conclusions
+
+A person sitting near a desk does not prove that they are studying or working.
+
+A visible packet near someone's hand does not prove they are eating.
+
+A person's appearance does not establish their identity, intentions, emotions or other sensitive attributes.
+
+We should describe visible evidence, not invent an interpretation.
+
+# 14. Frontend changes: preserve the existing React application
+
+Your existing frontend uses React, Vite and Tailwind CSS. The aim is to evolve it into an accessible camera-and-voice interface without unnecessarily replacing the whole frontend.
+
+## 14.1 The main interface
+
+The primary screen should make the following immediately understandable:
+
+- Is the camera active?
+- Is the microphone available?
+- Is OmniLens listening for a command?
+- Is a task currently running?
+- What did the last response say?
+- How can the user repeat the response?
+- How can the user pause, cancel or stop?
+
+The interface should not require the user to visually interpret a complex dashboard before they can use the main feature.
+
+A reasonable screen layout is:
+
+## OmniLens
+
+Understand your world. Through sound.
+
+Camera preview
+
+The user can start, stop and check camera status.
+
+Voice control
+
+Speak a command at any time.
+
+Example: “Describe,” “Find bottle,” or “Read text.”
+
+Describe
+
+Find object
+
+Read text
+
+Live detection
+
+Repeat
+
+Pause
+
+Stop
+
+Illustrative layout concept, not a screenshot or a description of the current implementation.
+
+The four modes should remain accessible through buttons, but voice commands should provide the same functionality when supported.
+
+## 14.2 Accessibility requirements
+
+Because the target users may not be able to see the screen, accessibility is part of the core functionality—not a final visual polish task.
+
+We need:
+
+- Proper accessible names for buttons and controls.
+- Semantic headings and landmarks.
+- Keyboard navigation.
+- Visible keyboard focus.
+- High-contrast text and controls.
+- Text that scales without breaking the layout.
+- Accessible status announcements.
+- A clear indication of camera and microphone permission errors.
+- A usable interface without relying exclusively on colour or icons.
+- Immediate access to Stop and Cancel.
+- A readable text alternative to spoken results.
+- Screen-reader-friendly task status and error messages.
+
+A visually large microphone button is useful, but it is not sufficient by itself. The control also needs an accessible name, keyboard support and clear state feedback.
+
+## 14.3 Keep visual and spoken state synchronized
+
+If the UI says “Live detection running” but the backend has stopped, that is a serious reliability issue.
+
+The frontend should reflect real task status, including:
+
+- Idle.
+- Starting.
+- Listening.
+- Processing.
+- Speaking.
+- Paused.
+- Completed.
+- Failed.
+- Cancelled.
+
+Status updates should be driven by actual events and API responses, not by optimistic UI messages that claim success before the operation has succeeded.
+
+## 14.4 Handle browser permissions properly
+
+The frontend must deal with:
+
+- Camera permission denied.
+- Microphone permission denied.
+- No camera device.
+- Camera already in use.
+- Unsupported speech-recognition API.
+- Network unavailable.
+- Backend unavailable.
+- A task that times out.
+- A camera session that ends unexpectedly.
+
+Each error should have a useful recovery action, and the system should communicate it through text and speech where possible.
+
+# 15. Backend changes: organize the Python/FastAPI application into clear responsibilities
+
+Your project already has a Python/FastAPI backend, according to the specification you shared. We should preserve it and introduce clear boundaries between the shared processing pipeline and individual user-facing tasks.
+
+The exact module names below are a proposed organization, not a claim that these files already exist in your repository.
+
+## 15.1 Suggested backend structure
+
+```
+backend/
+├── main.py
+├── requirements.txt
+├── app/
+│   ├── api/
+│   │   ├── health.py
+│   │   ├── describe.py
+│   │   ├── detect.py
+│   │   ├── search.py
+│   │   ├── ocr.py
+│   │   └── tasks.py
+│   │
+│   ├── vision/
+│   │   ├── opencv_pipeline.py
+│   │   ├── image_quality.py
+│   │   ├── object_detector.py
+│   │   ├── spatial_analysis.py
+│   │   └── frame_utils.py
+│   │
+│   ├── services/
+│   │   ├── scene_description.py
+│   │   ├── object_search.py
+│   │   ├── text_reader.py
+│   │   ├── live_detection.py
+│   │   ├── obstacle_awareness.py
+│   │   ├── currency_reader.py
+│   │   └── activity_cues.py
+│   │
+│   ├── agent/
+│   │   ├── decision_engine.py
+│   │   ├── search_state.py
+│   │   └── execution_trace.py
+│   │
+│   ├── models/
+│   │   ├── schemas.py
+│   │   └── model_registry.py
+│   │
+│   └── config.py
+│
+└── tests/
+    ├── test_opencv_pipeline.py
+    ├── test_detection.py
+    ├── test_ocr.py
+    ├── test_object_search.py
+    ├── test_api.py
+    └── test_safety_and_errors.py
+```
+
+We should not create all these files mechanically if the current backend already has a good equivalent structure. The objective is separation of responsibilities, not maximizing the number of files.
+
+### What each module would do
+
+| Module                 | Responsibility                                                                |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| `main.py`              | Initialize FastAPI, register routers and manage application startup/shutdown. |
+| `config.py`            | Load configuration from environment variables and validated defaults.         |
+| `health.py`            | Report application health and the readiness of required components.           |
+| `opencv_pipeline.py`   | Validate and preprocess frames using the required OpenCV 5 operations.        |
+| `image_quality.py`     | Evaluate input quality and return useful quality indicators.                  |
+| `object_detector.py`   | Load and run the existing YOLO model; normalize its detections.               |
+| `spatial_analysis.py`  | Convert bounding boxes into relative image positions.                         |
+| `scene_description.py` | Turn verified detections into a concise scene summary.                        |
+| `object_search.py`     | Execute the target-specific search workflow.                                  |
+| `text_reader.py`       | Coordinate OCR preprocessing, extraction and result formatting.               |
+| `decision_engine.py`   | Choose the next action based on the current task and visual evidence.         |
+| `search_state.py`      | Track target, retry count, cancellation and completion status.                |
+| `execution_trace.py`   | Record structured, privacy-conscious events for debugging and evaluation.     |
+| `model_registry.py`    | Manage model initialization and report which models are available.            |
+| `schemas.py`           | Define consistent input and output structures for the API.                    |
+
+The most important rule is that all modes should share the same validated OpenCV pipeline and model-loading infrastructure wherever appropriate.
+
+Otherwise, each mode might handle image dimensions differently, apply different confidence rules accidentally or load the same large model repeatedly.
+
+## 15.2 API design
+
+The frontend and backend need an agreed contract. Here is a reasonable starting proposal.
+
+| Endpoint                         | Method | Purpose                                                                |
+| -------------------------------- | ------ | ---------------------------------------------------------------------- |
+| `/health`                        | GET    | Basic process health.                                                  |
+| `/ready`                         | GET    | Check whether the required processing components are initialized.      |
+| `/api/v1/describe`               | POST   | Describe a supplied camera frame.                                      |
+| `/api/v1/detect`                 | POST   | Detect supported objects in a frame.                                   |
+| `/api/v1/search`                 | POST   | Analyze a frame for a requested target.                                |
+| `/api/v1/read-text`              | POST   | Run the OCR workflow.                                                  |
+| `/api/v1/obstacles`              | POST   | Return relevant supported detections from the configured image region. |
+| `/api/v1/currency`               | POST   | Run banknote recognition if the model is implemented and available.    |
+| `/api/v1/tasks/{task_id}`        | GET    | Retrieve task status for asynchronous work, if used.                   |
+| `/api/v1/tasks/{task_id}/cancel` | POST   | Request cancellation of a supported long-running task.                 |
+
+These endpoints are a proposed contract. We should inspect the current API before deciding whether to keep existing paths, add routes or adapt the frontend to a compatible interface.
+
+### Synchronous versus asynchronous work
+
+A short image-analysis request may be handled as a normal request/response call.
+
+Continuous detection, iterative object search or long OCR reading sessions may need asynchronous task handling, depending on the existing architecture and latency.
+
+If asynchronous tasks are introduced, we need:
+
+- A task identifier.
+- Explicit task status.
+- A cancellation mechanism.
+- A result retrieval mechanism.
+- Timeouts.
+- Handling for tasks that finish after being cancelled.
+- A policy for superseded requests.
+
+We should avoid building a complicated queueing system unless the workload actually requires it.
+
+## 15.3 Consistent response format
+
+All endpoints should return structured responses rather than arbitrary strings with different formats.
+
+For example, an object-detection response could follow this conceptual shape:
+
+```
+{
+  "status": "success",
+  "frame_id": "frame-001",
+  "processing_ms": 143,
+  "detections": [
+    {
+      "class_name": "bottle",
+      "confidence": 0.91,
+      "bbox": [310, 145, 420, 360],
+      "position": {
+        "horizontal": "right",
+        "vertical": "middle"
+      }
+    }
+  ]
+}
+```
+
+The values are illustrative. They are not measurements from OmniLens.
+
+A text-reading response could contain:
+
+```
+{
+  "status": "success",
+  "frame_id": "frame-002",
+  "text": "ROOM 204 - LABORATORY",
+  "regions": [],
+  "warnings": []
+}
+```
+
+The actual response should include the region data and confidence information available from the OCR implementation. Empty arrays should only be used when that field is intentionally part of the API contract and no regions were returned.
+
+### Error responses must be equally consistent
+
+Examples of error categories include:
+
+- Invalid image.
+- Unsupported image format.
+- Image too large.
+- Model unavailable.
+- OCR initialization failed.
+- Unsupported target.
+- Task cancelled.
+- Processing timed out.
+- AWS service unavailable.
+
+The API should provide a stable error code and a user-safe message. Detailed exception traces belong in server logs, not in public responses.
+
+# 16. AWS: deploy a real part of the vision pipeline
+
+The competition's AWS requirement is not fulfilled merely because the frontend is accessible online or because the website is deployed on an AWS-hosted static service.
+
+The official rules require a meaningful component of the application to run on AWS. For OmniLens, the strongest practical approach is to run the real OpenCV 5 image/video-processing service on AWS and have the frontend use that service.
+
+Your previous deployment attempt used Render, and the backend failed under a 512 MiB memory limit. We must account for that limitation rather than moving the same oversized workload to another small instance and hoping it works.
+
+## 16.1 Proposed architecture
+
+User's browser
+
+React/Vite frontend, camera, voice commands and speech output.
+
+HTTPS API
+
+Authentication or appropriate access controls, request validation, limits and error handling.
+
+AWS-hosted vision service
+
+FastAPI service with the actual OpenCV 5 processing workload.
+
+OpenCV 5
+
+Image validation, preprocessing, cropping, coordinates and measurements.
+
+AI models
+
+YOLO and OCR, deployed where resource capacity permits.
+
+Structured result
+
+The frontend receives the result and delivers the spoken response.
+
+This is a proposed architecture, not a claim that it has already been deployed.
+
+## 16.2 Which AWS service should be used?
+
+The right choice depends on the actual inference workload and the competition budget.
+
+Potential approaches include:
+
+- Amazon ECS with AWS Fargate: a containerized FastAPI service without managing the underlying servers directly.
+- Amazon EC2: a more configurable environment if we need control over system packages, model loading or hardware.
+- AWS Lambda: potentially suitable for lightweight, bounded image-processing operations, but not automatically suitable for large models, long-running loops or continuous camera processing.
+- A hybrid deployment: a lightweight OpenCV workload on AWS with a separate inference service, if that arrangement is justified and the overall application still demonstrates a meaningful AWS workload.
+
+We should not select a service simply because it sounds impressive. We should choose one that supports the actual package dependencies, model size, execution duration, request rate and cost constraints.
+
+For a first deployment, a containerized service may be the clearest path if the required dependencies and model fit within the available resources.
+
+## 16.3 What should run on AWS?
+
+At minimum, the AWS component should execute a real image/video-processing workload using OpenCV 5.
+
+A stronger integrated implementation would:
+
+1. Receive an image request from OmniLens.
+2. Validate and decode the image.
+3. Run the relevant OpenCV processing operations.
+4. Perform the intended detection or OCR work where resources permit.
+5. Return structured results and processing measurements.
+6. Feed those results into the application's decision logic.
+7. Support the same tested workflow as the local version.
+
+The exact division of work between AWS and local development should be documented. A tiny OpenCV endpoint that is unrelated to the actual application would be a much weaker demonstration than an AWS service used by Find Object, Read Text and Describe.
+
+## 16.4 Deployment must be reproducible
+
+The deployment needs:
+
+- A pinned Python environment.
+- A documented container or build configuration.
+- An explicit startup command.
+- Correct port binding.
+- Environment-based configuration.
+- Health and readiness checks.
+- Request-size and timeout limits.
+- Useful error logging.
+- Resource measurements.
+- A documented way to reproduce the deployment.
+
+Secrets must not be committed to GitHub or embedded in frontend JavaScript.
+
+## 16.5 Security and privacy
+
+The AWS service must treat incoming images as potentially sensitive.
+
+It should:
+
+- Validate request content.
+- Enforce size limits.
+- Avoid retaining camera images unnecessarily.
+- Avoid logging raw image contents.
+- Use HTTPS.
+- Restrict access where appropriate.
+- Keep credentials in an appropriate secrets/configuration mechanism.
+- Handle abusive or malformed requests.
+- Make external data transmission clear to users.
+
+The system should not quietly save camera frames or audio just because cloud processing is available.
+
+## 16.6 Cost and memory management
+
+Before deployment, estimate and measure:
+
+- Model initialization memory.
+- Memory used during inference.
+- Average and peak request latency.
+- CPU utilization.
+- Concurrent request behaviour.
+- Model file size.
+- Expected request volume.
+- Cloud service cost under the intended demo workload.
+
+Avoid multiple workers loading duplicate model copies unless the memory budget supports them.
+
+We should also confirm that the selected AWS instance architecture is compatible with the required OpenCV build and any model dependencies.
+
+# 17. The Agentic Vision engine: how OmniLens should decide what to do next
+
+This deserves its own section because it is central to the competition's special Agentic Vision path.
+
+An ordinary vision application receives an image, runs a model and returns the result.
+
+An agentic vision workflow uses the result to decide what action to take next.
+
+For OmniLens, the simplest convincing example is Find Object.
+
+## 17.1 The decision engine
+
+The decision engine should receive structured information such as:
+
+- User's requested target.
+- Current task state.
+- Current frame quality.
+- Detection results.
+- Target compatibility.
+- Detection confidence.
+- Previous search attempts.
+- Whether the user has cancelled.
+- Whether a new frame is available.
+- Whether the next action requires user input.
+
+It then selects an appropriate next action.
+
+Possible actions include:
+
+- Report the target as found.
+- Request another frame.
+- Ask the user to move the camera.
+- Ask for clarification.
+- Report that the target is unsupported.
+- Retry after a recoverable error.
+- Stop after the retry limit.
+- Cancel immediately.
+
+The decision should be traceable. If the system asks the user to move the camera, we should be able to explain which visual result caused that decision.
+
+## 17.2 A complete agent trace
+
+Imagine the user says “Find bottle.”
+
+Event 1 — User request
+
+Target extracted: `bottle`.
+
+Event 2 — First perception
+
+OpenCV validates the frame. The detector returns no sufficiently confident bottle candidate.
+
+Event 3 — Decision
+
+The target is supported, the frame is usable, and the search has attempts remaining. Request a new view.
+
+Event 4 — User-directed action
+
+Speak: “I can’t see a bottle clearly. Slowly move the camera to your right.”
+
+Event 5 — New perception
+
+Capture a fresh frame and run the same validated processing pipeline.
+
+Event 6 — Verification
+
+A suitable bottle detection is found. Report the approximate position and terminate the search.
+
+This trace demonstrates the important property: the first frame changed the next action, and the new frame changed the final decision.
+
+## 17.3 Human control is mandatory
+
+The user must be able to interrupt the workflow at any time.
+
+The agent should not:
+
+- Keep requesting new frames after cancellation.
+- Continue indefinitely after repeated failures.
+- Ignore a new user command.
+- Continue speaking obsolete results.
+- Claim success without appropriate evidence.
+- Treat a failed service call as a successful visual result.
+
+If the user says “Stop,” cancellation must take priority over another search attempt.
+
+## 17.4 Observability
+
+For debugging and evaluation, record structured events such as:
+
+- Task started.
+- Frame received.
+- Frame rejected or accepted.
+- OpenCV operation completed.
+- Model inference completed.
+- Decision selected.
+- User prompt spoken.
+- New frame received.
+- Task succeeded, failed or was cancelled.
+
+Each event should be associated with a task ID and timestamp. Avoid retaining raw camera images in logs unless there is a justified, disclosed and appropriately controlled reason.
+
+These traces will be useful both for fixing bugs and for demonstrating the Agentic Vision workflow to judges.
+
+# 18. Dependency management and the local development environment
+
+Your previous setup uses Windows, Python 3.12 for the backend environment, Node.js, npm, React, Vite and FastAPI. We should keep that environment stable while introducing the required changes.
+
+## 18.1 Python dependencies
+
+The backend dependency file should pin the versions actually tested in the working environment.
+
+It will likely include the appropriate packages for:
+
+- FastAPI.
+- Uvicorn.
+- OpenCV 5.
+- Ultralytics/YOLO, if that is the existing detector.
+- EasyOCR.
+- Compatible NumPy.
+- Any additional packages used by the implemented features.
+
+We must verify compatibility rather than blindly copy version numbers. In particular, OpenCV 5 availability and compatibility with the selected Python version, platform and model dependencies must be tested before finalizing the pins.
+
+The final dependency set should be reproducible in a clean environment.
+
+## 18.2 Node dependencies
+
+The frontend should retain the current React/Vite/Tailwind setup unless inspection identifies a concrete incompatibility.
+
+We need to verify:
+
+- The installed Node.js version.
+- The exact package versions.
+- Whether the project starts using its documented command.
+- Whether production builds succeed.
+- Whether the API URL is configured correctly.
+- Whether the browser can reach the deployed backend.
+- Whether camera and microphone permissions work in the actual deployment environment.
+
+Your earlier Vite warning or dependency-resolution issue should be addressed only after we inspect the relevant `package.json`, lockfile and build output. We should not change the entire frontend dependency tree unnecessarily.
+
+## 18.3 Environment variables
+
+The frontend and backend need clearly documented configuration values.
+
+Examples of the types of configuration we may need:
+
+- Backend API base URL.
+- Model file location.
+- Model confidence thresholds.
+- Request-size limits.
+- Request timeouts.
+- Feature availability flags.
+- Logging level.
+- AWS deployment-specific settings.
+
+The exact variable names should be defined by the implementation.
+
+Secrets, private keys and service credentials must not be committed to the repository. Frontend variables are not a safe place for secret credentials because client-side values can be exposed to users.
+
+## 18.4 Startup checks
+
+The local application should have a repeatable startup sequence:
+
+1. Activate the correct Python environment.
+2. Install the pinned backend dependencies.
+3. Confirm that the intended OpenCV 5 version imports correctly.
+4. Confirm that YOLO and EasyOCR initialize.
+5. Start the FastAPI service.
+6. Start the React/Vite application.
+7. Verify frontend-to-backend connectivity.
+8. Test one detection request and one OCR request.
+9. Test microphone and camera access in the browser.
+
+This sequence should ultimately be documented in the repository so another person can reproduce the working application.
+
+# 19. Testing: prove that every feature works
+
+We should not finish implementation simply because the website opens or one example succeeds.
+
+OmniLens needs unit tests, integration tests and end-to-end tests. We also need a documented evaluation dataset and measured results.
+
+## 19.1 OpenCV pipeline tests
+
+Test:
+
+- Valid images.
+- Empty input.
+- Corrupted image bytes.
+- Unsupported image format.
+- Very large images.
+- Unexpected colour channels.
+- Different image dimensions.
+- Low-contrast scenes.
+- Blurry images.
+- Cropped images.
+- Coordinate transformations after resizing or cropping.
+
+Check that invalid images fail safely and that valid images preserve the correct dimensions and coordinate mapping.
+
+## 19.2 Object-detection tests
+
+Test:
+
+- Supported object clearly visible.
+- Object partly occluded.
+- Object far from the camera.
+- Multiple instances of the same class.
+- Multiple different classes.
+- Cluttered backgrounds.
+- Low light.
+- An object that is not supported by the model.
+- Model unavailable.
+- Inference error.
+
+Verify that class names, bounding boxes and confidence values are returned consistently.
+
+## 19.3 Find Object tests
+
+The active-search workflow needs its own test cases:
+
+1. Target found in the first frame.
+2. Target found after a new frame.
+3. Target never found.
+4. Target unsupported.
+5. Frame invalid.
+6. Model unavailable.
+7. User cancels during search.
+8. User gives a new target during search.
+9. Search reaches the retry limit.
+10. Search exceeds its timeout.
+11. New frames are identical or stale.
+12. Multiple candidate detections create ambiguity.
+
+The key measure is not merely detection accuracy. It is also whether the complete task succeeds, terminates correctly and responds appropriately to failures.
+
+## 19.4 OCR tests
+
+Test:
+
+- Clear printed text.
+- Small text.
+- Low-contrast text.
+- Text at an angle.
+- Text under uneven lighting.
+- Curved packaging.
+- Multiple text blocks.
+- Multiple columns if that layout is supported.
+- Blurry or partially hidden text.
+- Images with no readable text.
+- OCR initialization failure.
+
+Measure character error rate or word error rate where ground-truth text is available.
+
+For example, character error rate can be calculated as:
+
+\\[ \mathrm{CER} = \frac{S+D+I}{N} \\]
+
+where \\(S\\) is the number of character substitutions, \\(D\\) the deletions, \\(I\\) the insertions and \\(N\\) the number of characters in the reference text.
+
+A lower CER indicates fewer character errors.
+
+## 19.5 Live-detection tests
+
+Verify:
+
+- The camera starts and stops correctly.
+- Frame processing is bounded.
+- Results arrive in the correct order or stale results are discarded.
+- Repeated announcements are suppressed.
+- New commands work during live mode.
+- Task changes do not require restarting the camera unnecessarily.
+- Speech does not overlap.
+- Stop cancels ongoing work.
+- Network interruptions produce recoverable errors.
+- The system does not exhaust memory during a sustained session.
+
+## 19.6 Voice interaction tests
+
+Test every supported command family, including variations in phrasing.
+
+Measure:
+
+- Command recognition success.
+- Correct intent routing.
+- Correct target extraction.
+- Response latency.
+- Behaviour when the command is ambiguous.
+- Behaviour when the browser does not support speech recognition.
+- Behaviour when microphone permission is denied.
+- Whether the user can cancel promptly.
+- Whether the application remains usable with keyboard and screen-reader controls.
+
+Speech recognition can fail even when the application is correct, so we should distinguish recognition failures from incorrect command routing.
+
+## 19.7 AWS integration tests
+
+The cloud deployment must be tested independently from the local version.
+
+Verify:
+
+- The deployed service starts successfully.
+- OpenCV 5 is the version actually used.
+- The intended workload runs on AWS.
+- The frontend reaches the correct endpoint.
+- Valid requests return the expected schema.
+- Invalid requests return useful errors.
+- Timeouts are handled.
+- Model loading succeeds where the model is deployed.
+- Resource usage stays within the configured limits.
+- The service recovers from expected failures.
+- No credentials or sensitive image content leak into logs.
+
+A working local backend does not prove that the AWS deployment works, and a successful health check does not prove that the vision pipeline works.
+
+# 20. Evaluation metrics: how we will prove OmniLens is useful
+
+The competition judging criteria in your document place significant weight on technical execution, innovation, real-world impact, usability, documentation and cloud delivery.
+
+Our evaluation should produce evidence for each area.
+
+| Area                | What to measure                                                     | Why it matters                                                    |
+| ------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Object detection    | Precision, recall and an appropriate detection metric such as mAP   | Shows whether supported objects are recognized correctly.         |
+| OCR                 | Character error rate, word error rate or exact-text accuracy        | Measures the quality of extracted text.                           |
+| Find Object         | Task success rate, retries, timeout rate and false success rate     | Measures the complete active-search workflow.                     |
+| Scene description   | Groundedness and correctness against annotated scenes               | Checks whether summaries reflect actual visual evidence.          |
+| Live detection      | Processing rate, end-to-end latency and duplicate-announcement rate | Measures real-time usability.                                     |
+| Voice control       | Command recognition and intent-routing accuracy                     | Shows whether the user can control the assistant hands-free.      |
+| Accessibility       | Task completion with keyboard/screen reader and usability feedback  | Checks whether the application is usable without visual reliance. |
+| Reliability         | Request failures, recovery success and cancellation behaviour       | Demonstrates robust operation.                                    |
+| AWS                 | Request latency, error rate, resource usage and reproducibility     | Demonstrates meaningful cloud delivery.                           |
+| Privacy and control | Cancellation behaviour, retention policy and access-control tests   | Shows responsible operation.                                      |
+
+### Important: no invented accuracy numbers
+
+We should not claim “99% accuracy,” “real-time in all conditions” or “zero missed obstacles” unless we have measurements that support those statements.
+
+The report should state:
+
+- Number of test cases.
+- How the test set was created.
+- Which objects and conditions were represented.
+- Which models and configurations were used.
+- The actual measured results.
+- Known failure cases.
+- The limitations of the evaluation.
+
+Even a small, carefully documented test set is better than a fabricated benchmark.
+
+## 20.1 Compare OpenCV preprocessing fairly
+
+For useful evidence, compare a baseline against the tested preprocessing pipeline using the same held-out test images.
+
+For example:
+
+- Baseline: original image.
+- Variant: resized image with a specific tested contrast enhancement.
+- Variant: perspective correction for an appropriate text-image subset.
+
+Measure both recognition quality and processing time. If a transformation adds latency without improving results, we should not claim it as an improvement.
+
+This also gives the technical report a clear explanation of why the selected OpenCV operations were retained.
+
+## 20.2 Measure end-to-end latency
+
+A detector's inference time is not the same as the time the user waits for a spoken result.
+
+The total delay may include:
+
+- Frame capture.
+- Image encoding.
+- Network transmission.
+- Backend queueing.
+- OpenCV processing.
+- Model inference.
+- Result serialization.
+- Response transmission.
+- Speech startup.
+
+Measure the complete user-facing delay, alongside relevant component-level timings.
+
+For live detection, record the distribution of delays across many requests rather than relying on one unusually fast sample.
+
+# 21. What exactly should change in the existing repository?
+
+Now let’s connect the design to the code you already have.
+
+Your project is not starting from zero. According to the existing project notes, it already has a React/Vite frontend, an Express `server.ts`, a Python/FastAPI backend, YOLO and EasyOCR integration. The important task is to determine which responsibilities are currently implemented in each layer and then extend them without creating duplicate processing pipelines.
+
+## 21.1 Frontend changes
+
+| Existing area to inspect   | Intended change                                                                               |
+| -------------------------- | --------------------------------------------------------------------------------------------- |
+| Main application component | Coordinate camera state, current task, voice commands and spoken-result status.               |
+| Existing mode buttons      | Keep them accessible and connect them to the same task router used by voice commands.         |
+| Camera component           | Provide reliable start/stop, frame capture and camera-error handling.                         |
+| Microphone control         | Handle permission, listening status and recognition errors.                                   |
+| API client                 | Use the correct backend URL, structured request formats, timeouts and error handling.         |
+| Live-detection loop        | Process selected frames, avoid duplicate requests and keep voice commands responsive.         |
+| Results display            | Show the latest result, processing state, warnings and accessible text.                       |
+| Keyboard handling          | Support applicable shortcuts without interfering with text inputs or screen-reader operation. |
+| Stop/Cancel controls       | Cancel current work, suppress stale results and stop speech promptly.                         |
+| Configuration              | Keep backend URLs and non-secret settings configurable by environment.                        |
+
+The existing frontend should not independently reimplement YOLO or OCR. Its role is to capture user input, send appropriate requests, display the results accessibly and manage the camera/voice interaction.
+
+## 21.2 Express server changes
+
+Your project notes mention a `server.ts` using Express with Gemini-related vision/OCR/TTS functionality.
+
+We need to inspect whether it currently:
+
+- Serves the frontend.
+- Handles API requests.
+- Calls a cloud model.
+- Processes images itself.
+- Proxies requests to FastAPI.
+- Handles speech or text generation.
+- Maintains session state.
+
+The answer determines what should change.
+
+If Express is already the frontend's gateway, it may be sensible to keep it and have it forward appropriate requests to the Python vision backend. If it currently duplicates the Python processing pipeline, we should decide which layer owns each operation and remove redundant implementations carefully.
+
+We should not automatically delete the Express server or replace the existing architecture before inspecting it.
+
+The desired end state is a clear responsibility boundary. For example:
+
+- React: interface and browser capabilities.
+- Express, if retained: web server or request gateway.
+- FastAPI: Python-based OpenCV 5 and vision processing.
+- Model components: object detection, OCR and any additional validated models.
+- Decision engine: active-search orchestration.
+- Speech manager: one controlled voice-output queue.
+
+This is a proposed division of responsibilities. The actual division must fit your current code.
+
+## 21.3 Python backend changes
+
+The backend should be inspected for:
+
+- Current API endpoints.
+- Model initialization.
+- OpenCV version and actual operations.
+- YOLO class support.
+- EasyOCR initialization.
+- Existing preprocessing.
+- Current detection output schema.
+- Error handling.
+- Health and readiness checks.
+- Request timeouts.
+- Memory usage.
+- Deployment configuration.
+- Existing evaluation scripts and tests.
+
+Then we should make targeted changes:
+
+1. Stabilize model loading and readiness.
+2. Establish the shared OpenCV 5 processing pipeline.
+3. Normalize detection and OCR results.
+4. Add or repair the scene-description workflow.
+5. Implement iterative Find Object control.
+6. Add or repair OCR processing.
+7. Implement bounded live-frame processing.
+8. Add spatial analysis.
+9. Add supporting features only where the necessary models and evidence exist.
+10. Add test coverage and structured logs.
+11. Connect the real vision workload to AWS.
+
+## 21.4 Dependency and deployment files
+
+We should inspect and update the files that actually exist in your repository, potentially including:
+
+- Python dependency files.
+- `package.json` and the lockfile.
+- Vite configuration.
+- FastAPI startup configuration.
+- Dockerfile or container configuration, if used.
+- Environment-variable examples.
+- `.gitignore`.
+- Deployment instructions.
+- Test configuration.
+- Model-download or model-location instructions.
+
+We must preserve any working configuration and pin the versions that are actually tested.
+
+## 21.5 Documentation changes
+
+The README should explain:
+
+- What OmniLens does.
+- The supported features.
+- The architecture.
+- The actual OpenCV 5 operations.
+- The supported model classes.
+- How to install dependencies.
+- How to configure and start the frontend.
+- How to configure and start the backend.
+- How to run tests.
+- How to deploy the AWS component.
+- Which environment variables are required.
+- Which model files are needed and how they are obtained.
+- Known limitations.
+- Privacy and responsible-use considerations.
+
+The README must describe what works, not what we merely plan to implement.
+
+# 22. How to integrate everything without creating a giant, fragile application
+
+The most important architecture principle is to build shared components and then compose the features from them.
+
+Consider these examples:
+
+- Describe and Find Object both need OpenCV and object detection.
+- Read Text and Product Reader both need OpenCV, OCR and speech output.
+- Live Detection needs camera management, OpenCV, object detection, duplicate suppression and speech scheduling.
+- Obstacle Awareness needs object detection, spatial analysis and cautious wording.
+- Currency Recognition needs its own validated model but can reuse camera, OpenCV and speech infrastructure.
+- Person Presence can reuse object detection if the loaded model supports the required class.
+- Find Object needs the decision engine, cancellation and task-state tracking.
+
+The goal is not to build nine separate applications inside one website. It is to build one set of dependable shared capabilities that support multiple user-facing tasks.
+
+## 22.1 Shared data structures
+
+We should define common representations for:
+
+- A captured frame.
+- A detected object.
+- A text region.
+- A vision-processing result.
+- A task status.
+- A user command.
+- A speech message.
+- An execution-trace event.
+
+Consistent structures reduce integration errors.
+
+For example, if object detections use a standard bounding-box format, both Describe and Find Object can consume the same results. If every feature invents its own coordinate convention, spatial announcements become inconsistent.
+
+## 22.2 Shared cancellation
+
+Every long-running task should respect cancellation.
+
+If the user says “Stop,” the application should:
+
+1. Mark the active task as cancelled.
+2. Prevent it from scheduling further work.
+3. Cancel or ignore pending requests where possible.
+4. Remove its queued speech messages.
+5. Stop current speech when the user intends to stop the entire activity.
+6. Prevent late responses from overwriting the new application state.
+7. Release resources when appropriate.
+
+Cancelling a browser request does not always mean that already-started server computation has stopped. The backend must check cancellation state between appropriate processing steps, and the frontend must ignore results from obsolete tasks.
+
+## 22.3 Shared task identifiers
+
+Every user request should have a task identifier.
+
+This allows the frontend to know which result belongs to which request and helps prevent a slow earlier request from overwriting a newer result.
+
+For example:
+
+- Task A: “Find bottle.”
+- Task B: “Read text.”
+- Task A finishes after Task B starts.
+
+If Task A is obsolete, its result should not unexpectedly replace the Read Text state or be spoken as the current result.
+
+Task IDs, cancellation tokens or generation counters can help enforce this rule, depending on the existing architecture.
+
+# 23. Failure handling: what should happen when things go wrong?
+
+A reliable assistant must behave sensibly when the camera, model, network, OCR or speech system fails.
+
+| Failure                            | Correct behaviour                                                                               |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Camera permission denied           | Explain the problem and offer a clear way to enable permission or use an available alternative. |
+| No camera available                | Report that camera capture cannot start.                                                        |
+| Invalid image                      | Reject it safely and request a usable frame.                                                    |
+| YOLO model missing                 | Mark detection unavailable and return a clear error.                                            |
+| OCR reader failed to initialize    | Disable or mark OCR unavailable rather than pretending it works.                                |
+| Target not supported               | Explain that the current system cannot reliably search for that target.                         |
+| Target not found                   | Request a new view when appropriate; stop after the retry budget.                               |
+| Network failure                    | Explain that the vision service is unavailable and allow a safe retry.                          |
+| AWS timeout                        | End or retry according to a bounded policy; do not loop indefinitely.                           |
+| Speech recognition unavailable     | Provide a usable fallback and explain the limitation.                                           |
+| Speech playback fails              | Show an accessible text result and allow another attempt.                                       |
+| User cancels                       | Stop scheduling work and suppress obsolete announcements.                                       |
+| Two commands arrive close together | Apply the documented task-priority and cancellation rules.                                      |
+| Camera session ends unexpectedly   | Stop processing and report the issue.                                                           |
+| Model returns uncertain detections | Communicate uncertainty rather than inventing certainty.                                        |
+
+These are not optional polish items. They are part of the behaviour that makes OmniLens dependable.
+
+# 24. Privacy, accessibility and responsible operation
+
+The application is designed for blind and low-vision users, and its camera may capture people, private documents, home interiors or other sensitive visual information.
+
+The project should therefore have a clear privacy and safety design.
+
+## 24.1 Camera and microphone permissions
+
+The application should explain why camera and microphone access are needed.
+
+It should not imply that the camera or microphone is active when it is not. It should release camera resources when the session ends and make active-session status accessible.
+
+## 24.2 Image and audio retention
+
+The default should be to process images transiently and avoid storing raw camera frames or audio unnecessarily.
+
+If the AWS service needs temporary processing storage, that should be controlled and documented. Logs should focus on request metadata, processing time, task status and errors rather than raw image content.
+
+If audio is sent to an external speech-recognition service, the user should be told about that data flow.
+
+## 24.3 User control
+
+The user should be able to stop or cancel the task without navigating through multiple screens.
+
+The system must not keep performing a search simply because the agent believes more attempts could help.
+
+## 24.4 Honest claims
+
+We should describe OmniLens as an assistive visual-information tool, not a guaranteed navigation or emergency-safety system.
+
+It must not promise perfect object recognition, complete OCR accuracy or guaranteed obstacle avoidance.
+
+For the final report, include the known limitations and explain the intended role of the system clearly.
+
+# 25. The final competition deliverables
+
+Your uploaded competition page lists specific final-submission requirements. We should prepare every one of them.
+
+## 25.1 Technical report
+
+The report should explain:
+
+1. The problem OmniLens addresses.
+2. The target users and intended real-world benefit.
+3. The system architecture.
+4. How OpenCV 5 is used substantively.
+5. The existing and additional vision models.
+6. The voice-command architecture.
+7. The Agentic Vision workflow.
+8. The AWS architecture and actual deployed workload.
+9. The evaluation methodology and measured results.
+10. The failure cases and limitations.
+11. Privacy, accessibility and responsible-use considerations.
+12. Instructions for reproducing the system.
+
+The report must describe the implementation that actually exists at submission time.
+
+## 25.2 Judge-accessible code repository
+
+The repository should include the necessary application code, configuration examples, pinned dependencies, testing instructions and deployment instructions.
+
+It should not accidentally include:
+
+- API keys.
+- Cloud credentials.
+- Private tokens.
+- Personal information.
+- Large generated files that are not needed to reproduce the application.
+- Virtual environments or `node_modules` directories.
+
+If model weights cannot be distributed with the repository, the instructions should explain how judges can obtain the required model files legally and reproduce the environment.
+
+## 25.3 Architecture diagram
+
+The diagram should make the following components and data flows clear:
+
+- Browser camera and microphone.
+- React frontend.
+- Express gateway, if retained.
+- AWS API or service.
+- OpenCV 5 processing.
+- YOLO and OCR.
+- Decision engine.
+- Voice response.
+- Logging and monitoring.
+- User cancellation and control flow.
+
+The diagram should reflect the real deployed architecture, not a proposed future design.
+
+## 25.4 Working demonstration
+
+Provide a working endpoint or arrange the live screen-share demonstration required by the competition.
+
+Before recording, test the complete path from the browser camera to the actual vision backend and back to the spoken result.
+
+A frontend that opens but cannot successfully perform detection or OCR is not sufficient.
+
+## 25.5 Demo video — maximum five minutes
+
+The official page specifies a video of no more than five minutes showing the team, the application working, the architecture and its principal results.
+
+A strong demonstration should include:
+
+- A brief introduction to the problem and solution.
+- The accessible interface.
+- A spoken Describe command.
+- A successful Find Object workflow showing a new frame changing the next action.
+- A Read Text example.
+- Live Detection with a voice-command switch.
+- A short explanation of OpenCV 5 and the AWS workload.
+- Real evaluation results and an honest limitation.
+
+We should only record features that are actually working.
+
+## 25.6 Evaluation evidence
+
+Include representative successes and failures, test-set details, measured metrics and known limitations.
+
+For Agentic Vision, include the workflow diagram and trace showing how visual results change a later decision or action.
+
+For the COOL special award, additional requirements apply, including evidence that COOL executes the claimed core workload on AWS Graviton or the documented Arm component. We should not claim COOL award eligibility unless we actually implement and demonstrate those requirements.
+
+# 26. What deserves priority when we implement the changes?
+
+We want the complete design, but we also need to distinguish essential functionality from optional extensions. Otherwise, we risk ending up with many unfinished features.
+
+This is a priority order, not a day-by-day schedule.
+
+## Priority 1 — Reliable core
+
+Foundation of the whole project
+
+- Get the existing frontend and backend communicating reliably.
+- Confirm YOLO and EasyOCR initialization.
+- Verify the required OpenCV 5 installation and substantive processing.
+- Repair Describe, Find Object and Read Text.
+- Implement camera and microphone lifecycle handling.
+- Establish shared error handling and speech control.
+
+## Priority 2 — Agentic behaviour
+
+The strongest distinguishing feature
+
+- Implement iterative Find Object.
+- Make visual results change the next action.
+- Add bounded retries, cancellation and fresh-frame verification.
+- Produce execution traces.
+- Test the workflow end to end.
+
+## Priority 3 — Voice-controlled live experience
+
+The experience you specifically requested
+
+- Keep the microphone available during live detection.
+- Route spoken commands to the correct task.
+- Prevent overlapping speech and repetitive announcements.
+- Support Repeat, Pause, Resume, Stop and Cancel.
+- Make the interface accessible without visual reliance.
+
+## Priority 4 — Real AWS deployment
+
+Required for the competition
+
+- Deploy a meaningful OpenCV 5 workload on AWS.
+- Connect the real application to the deployed service.
+- Test health, readiness, memory, latency and error handling.
+- Document the reproducible configuration.
+
+## Priority 5 — Evidence and additional features
+
+Strengthen the submission without weakening the core
+
+- Measure detection, OCR, task success and latency.
+- Add obstacle awareness and product/sign-reading improvements.
+- Add currency and activity recognition only with suitable models and tests.
+- Finish the report, diagram, code documentation and demo video.
+
+This order does not mean that the other features are unimportant. It means the core should be dependable before we add more model dependencies and complexity.
+
+# 27. The definition of “complete” for OmniLens
+
+We should not declare OmniLens finished merely because all the buttons appear on the screen.
+
+The project should satisfy the following acceptance checklist.
+
+## Completion tracker
+
+### 0/27
+
+### 1. Camera and application foundation
+
+The frontend starts and builds successfully.
+
+The backend starts and exposes its documented API.
+
+The intended OpenCV 5 version is verified at runtime.
+
+Camera permission, capture, stop and recovery work.
+
+YOLO and EasyOCR readiness are reported accurately.
+
+### 2. Core vision features
+
+Describe returns a grounded summary of supported detections.
+
+Find Object searches for a supported target and handles missing targets.
+
+Read Text extracts and speaks readable text without inventing missing words.
+
+Spatial wording is consistent with the image coordinates.
+
+Invalid images and model errors are handled safely.
+
+### 3. Voice and live camera
+
+Voice commands route to the correct tasks.
+
+Commands can be accepted while live detection is active.
+
+Repeated announcements are suppressed.
+
+Speech does not overlap across independent tasks.
+
+Repeat, Pause, Resume and Stop work as documented.
+
+Cancelled or superseded tasks cannot speak stale results.
+
+### 4. Agentic Vision
+
+Visual results influence the next search action.
+
+The system requests a new view when appropriate.
+
+Search attempts and timeouts are bounded.
+
+The user can cancel the workflow.
+
+A trace records perception, decision and action events.
+
+### 5. AWS and competition readiness
+
+The actual OpenCV 5 workload runs on AWS.
+
+The frontend uses the deployed vision service.
+
+Dependencies and deployment steps are pinned and documented.
+
+Evaluation metrics are measured and reproducible.
+
+The technical report and architecture diagram match the implementation.
+
+The working demo and video meet the competition requirements.
+
+Reset checklistCopy checklist
+
+This is a planning checklist, not a live inspection of your code or deployment.
+
+# 28. What I need to make the next step exact for your project
+
+Bro ❤️, we now have the complete intended design. The next step is not to throw away your existing project and generate a completely different one. It is to inspect your actual source code and identify exactly which files need to be repaired, modified, added or left unchanged.
+
+Please upload your current OmniLens project as a ZIP. Include the frontend, Express server and Python backend, along with configuration and tests.
+
+Before uploading, exclude:
+
+- `node_modules`
+- `.venv` or `venv`
+- `.git`
+- Large model-weight files, unless specifically needed for inspection
+- `.env` files
+- API keys, passwords and AWS credentials
+
+Keep the dependency files, source code, configuration templates, README and any existing test files. If you have important deployment logs or screenshots of the current errors, those can help too.
+
+Once the actual source is available, the implementation review should produce:
+
+1. An existing-code audit: what already works, what is broken and what is missing.
+2. A file-by-file change map: exact existing files to edit, new files to add and files that should remain unchanged.
+3. An integration plan: how React, Express, FastAPI, OpenCV 5, YOLO, OCR, the voice controller and AWS should communicate.
+4. Concrete code changes: based on your real source, not guessed filenames or imaginary functions.
+5. A test plan and results: which tests pass, which fail and what remains unverified.
+6. Deployment and submission instructions: grounded in the configuration that actually works.
+
+One deadline detail also matters: your uploaded competition page lists the final project deadline as October 26, 2026, at 11:59 p.m. Pacific Time, and its displayed countdown gives a conflicting-looking local time. Since today is October 24, confirm the deadline and your ability to submit on the official [OpenCV AI Competition 2026 Devpost page](https://opencv26.devpost.com/?utm_source=chatgpt.com). The earlier AWS grant proposal and the final project submission are separate matters.
+
+Our target is clear: OmniLens should be a genuinely usable, voice-controlled visual assistant, with substantive OpenCV 5 processing, an actual AWS-hosted vision workload, a verifiable Agentic Vision loop, responsible accessibility design and measured results—not merely a good-looking demo.

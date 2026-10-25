@@ -1,0 +1,896 @@
+Bro ❤️🔥 let's design OmniLens as a world-class accessibility product — something that looks beautiful in a global hackathon, feels premium to sighted visitors, and is genuinely easy to use for blind and low-vision users.
+
+The most important principle is this: the interface should look impressive to the world, but it should never make the user work harder to use it. Beautiful visuals attract people; accessible interactions make the product valuable.
+
+Here is the complete frontend design specification you can give to your AI website builder or frontend developer.
+
+# OmniLens — Complete Frontend Design & User Experience Specification
+
+**Product name:** OmniLens\
+**Tagline:** Understand your world. Through sound.\
+**Product category:** AI-powered visual assistance for blind and low-vision users\
+**Core experience:** Camera + voice commands + computer vision + spoken guidance\
+**Frontend technology:** React, Vite, Tailwind CSS\
+**Design direction:** Premium, warm, futuristic, human-centered, accessible and internationally presentable
+
+---
+
+# 1. THE VISION
+
+Build OmniLens as a beautiful, intelligent, voice-controlled visual assistant that helps blind and low-vision people understand their surroundings through spoken descriptions.
+
+OmniLens should not look like a generic AI chatbot, a complicated computer-vision dashboard or a medical application. It should feel like a thoughtfully designed consumer technology product that a person would be proud to use and recommend.
+
+The product has two equally important experiences:
+
+1. **The public-facing experience:** A visually compelling website that communicates the mission, demonstrates the technology, builds trust and helps people around the world understand OmniLens.
+2. **The accessible application experience:** A simple, reliable workspace where users can activate the camera, speak naturally, request visual information and hear useful responses without needing to navigate visually complex controls.
+
+The design must balance beauty, simplicity, accessibility, trust and technical credibility.
+
+## Core design philosophy
+
+- Voice first, not buttons first.
+- Accessible by default, not accessible as an afterthought.
+- One obvious next action at a time.
+- Large, clearly labeled controls.
+- High contrast and readable typography.
+- Spoken information that is concise and useful.
+- No dependence on colour, icons or animations alone.
+- No unnecessary menus, visual clutter or distracting motion.
+- A premium visual identity that makes the product memorable.
+- Honest communication about what the AI can and cannot recognize.
+
+# 2. BRAND IDENTITY AND VISUAL LANGUAGE
+
+## Brand personality
+
+OmniLens should feel:
+
+- Human and empathetic.
+- Intelligent but not intimidating.
+- Calm and reassuring.
+- Modern and innovative.
+- Dependable and privacy-conscious.
+- Beautiful enough to stand out in international technology competitions.
+- Inclusive without looking clinical or institutional.
+
+The visual identity should communicate that technology is helping people connect with their surroundings, rather than making users feel that they are interacting with a complicated machine.
+
+## Recommended colour palette
+
+Use a premium deep-navy, warm-ivory and teal colour system, with a restrained amber accent.
+
+This palette gives OmniLens a distinctive identity while allowing important controls to stand out clearly.
+
+| Colour          | Hex code  | Purpose                                                              |
+| --------------- | --------- | -------------------------------------------------------------------- |
+| Midnight navy   | `#101820` | Main dark surfaces, hero backgrounds and premium branding            |
+| Deep blue       | `#172B3A` | Secondary dark surfaces and navigation                               |
+| Warm ivory      | `#FAF7F0` | Light-mode background and readable content surfaces                  |
+| Pure white      | `#FFFFFF` | Text or surfaces where strong contrast is required                   |
+| Accessible teal | `#006B66` | Primary actions and selected controls on light backgrounds           |
+| Bright teal     | `#57D6C5` | Highlights on dark backgrounds, active states and decorative accents |
+| Soft amber      | `#F4BF62` | Carefully limited emphasis and important visual markers              |
+| Charcoal        | `#202A32` | Primary text on light surfaces                                       |
+| Muted slate     | `#52616B` | Secondary text where contrast requirements are satisfied             |
+| Error red       | `#B42318` | Errors on light backgrounds, paired with text and an icon            |
+
+Use teal and amber purposefully rather than decorating every component with bright colours.
+
+**Important accessibility rule:** A colour that works on a dark background may not provide sufficient contrast on a light background. Define separate foreground and background tokens for light and dark modes, and validate all meaningful text and controls against WCAG contrast requirements.
+
+Do not use muted grey text on a coloured surface unless its contrast has been verified. Never communicate status using colour alone.
+
+## Typography
+
+Use a clean, highly readable typeface such as **Atkinson Hyperlegible** or **Inter**.
+
+- Headings: bold, confident and uncluttered.
+- Body text: clear, comfortably sized and generously spaced.
+- Buttons: short, direct action labels.
+- Instructions: simple language without technical jargon.
+- Status messages: explicit and readable.
+- Error messages: concise, respectful and actionable.
+
+Default body text should be comfortably readable, with a practical target around 18px for primary application instructions. Allow users to increase the font size substantially without breaking the layout.
+
+Avoid thin font weights, tiny captions, decorative lettering and long blocks of tightly packed text.
+
+## Shapes and surfaces
+
+Use:
+
+- Generously sized buttons.
+- Rounded corners, approximately 14–20px for primary cards.
+- Clear borders between adjacent interactive elements.
+- Subtle shadows only where they improve hierarchy.
+- Comfortable spacing around text and controls.
+- Restrained gradients for the public-facing hero.
+- Minimal animation.
+- Consistent iconography with visible text labels.
+
+The interface should feel polished and tactile, but not overloaded with floating glass panels, excessive gradients or ornamental elements.
+
+# 3. TWO DISTINCT WEBSITE EXPERIENCES
+
+Organize OmniLens into two connected experiences.
+
+## Experience A: Public landing website
+
+This is the first impression for judges, developers, potential collaborators, accessibility advocates and the general public.
+
+It should explain the mission, show the product, demonstrate how it works and provide a clear way to enter the application.
+
+## Experience B: Accessible OmniLens application
+
+This is where the actual visual-assistance tasks happen.
+
+Once users enter the application, remove unnecessary marketing content. Prioritize the camera, voice control, task status, spoken results and Stop button.
+
+The public website can be visually expressive. The actual assistant must remain calm, predictable and accessible.
+
+# 4. PUBLIC LANDING PAGE — THE FIRST IMPRESSION
+
+## 4.1 Navigation bar
+
+Create a clean, premium navigation bar.
+
+**Left side:** OmniLens logo and wordmark.
+
+The logo should be an original, simple symbol combining the idea of a lens, a sound wave and a subtle directional cue. It should work in monochrome and at small sizes. Do not use a logo that depends on intricate visual detail.
+
+**Center or right-side links:**
+
+- About
+- How It Works
+- Features
+- Accessibility
+- Technology
+
+**Primary action:** “Try OmniLens”
+
+The navigation must be keyboard accessible, work on mobile, and include a clear focus indicator.
+
+Keep the navigation compact. Do not make visitors pass through several pages before they can understand or try the product.
+
+## 4.2 Hero section
+
+The hero is the most visually important part of the public website.
+
+Use a deep navy background with a restrained teal glow, soft lighting and a premium editorial layout.
+
+### Left side: Main message
+
+Headline:
+
+**See the world differently. Understand it through sound.**
+
+Supporting text:
+
+“OmniLens uses AI-powered vision and voice interaction to help blind and low-vision people understand objects, read visible text and explore their surroundings through spoken guidance.”
+
+Primary button: **Experience OmniLens**
+
+Secondary button: **Explore How It Works**
+
+Add a small, readable statement such as:
+
+“Designed around accessible, voice-first interaction.”
+
+Avoid making unsupported claims such as perfect recognition, guaranteed safety or complete independence.
+
+### Right side: Product demonstration
+
+Show a beautiful, realistic preview of the actual OmniLens interface.
+
+The preview could include:
+
+- A camera view of an everyday indoor scene.
+- A visible detection overlay around a supported object.
+- A short transcript of the spoken response.
+- A clearly labeled microphone control.
+- A task indicator such as “Describing surroundings.”
+- A small waveform indicating speech playback.
+
+Use a restrained, elegant composition with the interface as the main visual focus.
+
+Do not let the decorative camera mockup overwhelm the headline or the primary action.
+
+The visual should help visitors understand the product immediately: camera input becomes meaningful spoken information.
+
+## 4.3 Mission statement
+
+Below the hero, introduce the problem OmniLens addresses.
+
+Suggested heading:
+
+**The world is full of information. Everyone deserves a way to access it.**
+
+Explain that everyday environments contain visual information in signs, labels, furniture, objects and the arrangement of surroundings. OmniLens aims to make selected visual information more accessible through AI and spoken guidance.
+
+Keep the writing respectful. Avoid portraying blind or low-vision people as helpless or reducing them to a medical problem.
+
+The message should emphasize access, agency, usability and inclusive design.
+
+## 4.4 The four core capabilities
+
+Present four visually consistent feature cards.
+
+### Card 1 — Describe Surroundings
+
+Icon: `scan-eye`
+
+Description:
+
+“Get a concise spoken summary of supported objects and visible elements in the current camera view.”
+
+Visual treatment: A camera scene with a few clearly identified objects and simple position labels.
+
+### Card 2 — Find an Object
+
+Icon: `search`
+
+Description:
+
+“Ask OmniLens to look for a supported object and guide you through another camera view when it cannot find the target.”
+
+Visual treatment: A target object highlighted within a scene, with a short explanation of the search process.
+
+### Card 3 — Read Text
+
+Icon: `scan-text`
+
+Description:
+
+“Read visible signs, labels and documents using optical character recognition and spoken output.”
+
+Visual treatment: A sign or label alongside the extracted text.
+
+### Card 4 — Live Detection
+
+Icon: `activity`
+
+Description:
+
+“Receive useful announcements about supported objects as the camera view changes, with controls to pause or stop.”
+
+Visual treatment: A simple sequence of camera frames with a concise announcement.
+
+Every card should have a readable title, concise explanation and a meaningful accessible name. Do not make a card's functionality understandable only through an illustration.
+
+## 4.5 How it works
+
+Use a simple four-step horizontal sequence on desktop and a vertical sequence on mobile.
+
+**Step 1 — Point the camera**
+
+The user opens the camera and points it toward the environment or text they want to understand.
+
+**Step 2 — Speak naturally**
+
+The user says “Describe,” “Find bottle,” “Read text” or another supported request.
+
+**Step 3 — AI processes the view**
+
+The application processes the frame, identifies supported visual information and determines the appropriate response.
+
+**Step 4 — Hear the result**
+
+OmniLens speaks a concise response and remains available for another request.
+
+Keep this explanation approachable. The public website should not force every visitor to understand model architecture before they understand the value of the product.
+
+## 4.6 Showcase the voice-first interaction
+
+Create a dedicated section demonstrating how one camera session can support multiple requests.
+
+Show a sequence such as:
+
+- User: “Describe.”
+- OmniLens: “A chair is visible toward the left side of the image.”
+- User: “Find bottle.”
+- OmniLens: “I can't see a bottle clearly. Slowly move the camera to your right.”
+- User moves the camera.
+- OmniLens: “A bottle is visible near the center.”
+
+Use this as an illustrative example only. The final wording and detected results must correspond to real, supported functionality.
+
+This section should communicate the key differentiator: the user can change tasks through voice commands instead of repeatedly navigating menus.
+
+## 4.7 Accessibility commitment
+
+Include a section titled:
+
+**Accessibility is built into the experience.**
+
+Explain the actual design principles:
+
+- Voice-first interaction.
+- Screen-reader-friendly controls.
+- Keyboard accessibility.
+- Large, readable text.
+- High-contrast modes.
+- Clear spoken and visual status messages.
+- Easy cancellation.
+- Reduced repetitive announcements.
+- Transparent uncertainty and error handling.
+
+Do not claim that the application is fully accessible or compliant with a standard until it has been tested.
+
+## 4.8 Technology and innovation section
+
+Present the technology in a way that is understandable to a general audience and credible to technical judges.
+
+Potential elements include:
+
+- OpenCV 5 for image and video processing.
+- YOLO for supported object detection.
+- EasyOCR for text recognition.
+- A voice-command controller.
+- A shared speech manager.
+- An agentic perception-and-action loop.
+- AWS-hosted vision processing.
+
+Only list components that are genuinely integrated in the submitted application.
+
+A useful architecture illustration should show how camera input travels through image processing, vision inference, decision logic and spoken output.
+
+Avoid a wall of technology logos with no explanation of what each technology contributes.
+
+## 4.9 Final call to action
+
+Use a strong, simple section near the bottom.
+
+Headline:
+
+**Make more of the world accessible.**
+
+Supporting text:
+
+“Explore a different way to interact with the visual world, through voice, AI and thoughtful accessibility design.”
+
+Primary action: **Try OmniLens**
+
+Secondary action: **Explore the Technology**
+
+If the application is still in development, clearly label the experience as a prototype or demo. Never imply that an incomplete feature is production-ready.
+
+## 4.10 Footer
+
+Include:
+
+- OmniLens wordmark and tagline.
+- About.
+- Features.
+- Accessibility statement.
+- Privacy information.
+- Technical documentation.
+- Source repository.
+- Contact or feedback link, if available.
+- A concise note about limitations.
+
+Do not invent external links, partner endorsements, user testimonials or certifications.
+
+# 5. THE ACTUAL APPLICATION — A SIMPLE, ACCESSIBLE WORKSPACE
+
+The application should be much simpler than the public website.
+
+The user's main task should be possible without navigating a complicated dashboard.
+
+## 5.1 Application layout
+
+On desktop, use a clear two-part composition:
+
+**Main area:**
+
+- Camera preview.
+- Current task.
+- Latest result.
+- Short status messages.
+
+**Control area:**
+
+- Prominent voice-control button.
+- Four core task buttons.
+- Repeat, Pause and Stop controls.
+- Camera and microphone status.
+
+On mobile, arrange these vertically in a predictable order.
+
+The layout must reflow correctly when the user increases text size or uses a screen reader.
+
+Do not place essential controls in hover-only menus or require precise mouse movements.
+
+## 5.2 Application header
+
+At the top, display:
+
+- OmniLens logo and wordmark.
+- A concise application title.
+- A clearly labeled Settings control.
+- An accessible way to access Help.
+
+Keep the header short. The application is not a traditional productivity dashboard and should not waste the user's attention on navigation.
+
+## 5.3 Camera area
+
+The camera preview is an important visual reference for users who can see part of the screen, but it must not be the only way to understand the application's state.
+
+Display:
+
+- Camera status.
+- A clear Start Camera or Stop Camera action.
+- An optional visual detection overlay.
+- A short task status.
+- A useful error message if the camera is unavailable.
+
+The system should never silently use an old frame as if it were a current camera view.
+
+For low-vision users, provide a clear preview size and avoid overlays that obscure important parts of the image.
+
+For blind users, the camera view itself is not a sufficient feedback mechanism. Every important state change must also be accessible through text and assistive technology, with spoken feedback where appropriate.
+
+## 5.4 The primary voice-control area
+
+This should be one of the most prominent controls in the application.
+
+Create a large, clearly labeled microphone button with the text:
+
+**Tap to speak**
+
+When activated, change its label and accessible state to something like:
+
+**Listening — speak your command**
+
+When a command has been recognized:
+
+**Command received — processing**
+
+When a response is ready:
+
+**Response ready**
+
+Do not depend on an animated waveform or colour change alone to communicate these states.
+
+Use a simple, restrained waveform during speech activity if it adds useful feedback. Respect reduced-motion preferences and never make animations necessary for understanding the application.
+
+The user should be able to issue commands naturally, without first opening a feature menu.
+
+## 5.5 The four primary mode controls
+
+Place the four most important tasks in a consistent, clearly labeled arrangement.
+
+**Describe Surroundings**
+
+Supporting text: “Hear a summary of your current view.”
+
+**Find Object**
+
+Supporting text: “Ask where a supported object appears.”
+
+**Read Text**
+
+Supporting text: “Read a sign, label or document.”
+
+**Live Detection**
+
+Supporting text: “Hear useful updates as the view changes.”
+
+Use large buttons with both icons and text. Avoid icon-only controls.
+
+The same task router should be used whether the user selects a button or speaks a command. This prevents voice and button interactions from behaving differently.
+
+Additional features such as obstacle awareness, currency recognition and product-label reading should be available through voice commands and, where appropriate, a secondary accessible menu. They should not compete visually with the four primary actions.
+
+# 6. THE VOICE-CONTROL EXPERIENCE
+
+The voice controller should work across the application, including while live detection is active.
+
+## Supported command families
+
+- “Describe” or “What is around me?”
+- “Find bottle” or “Where is my bag?”
+- “Read text” or “Read this sign.”
+- “Read label.”
+- “Live detection.”
+- “Obstacle” or “What is ahead?”
+- “Currency” or “Identify this note.”
+- “Is anyone there?”
+- “Repeat.”
+- “Pause.”
+- “Resume.”
+- “Stop” or “Cancel.”
+
+The application should recognize supported natural-language variations and ask a clarification question when the intended action is ambiguous.
+
+## Task switching
+
+The camera should remain active when the user changes between compatible tasks, unless the user explicitly stops the camera or a technical limitation requires a restart.
+
+For example:
+
+1. The user says “Describe.”
+2. OmniLens provides a summary.
+3. The user says “Read text.”
+4. OmniLens reads the visible text.
+5. The user says “Find bottle.”
+6. OmniLens begins searching for a bottle.
+
+The user should not have to navigate back to a home screen between each task.
+
+## Voice interruption
+
+The application must prioritize explicit Stop and Cancel commands.
+
+When the user issues a new request, the system should manage the previous task according to a defined policy, prevent stale results from being announced and avoid overlapping speech.
+
+If browser speech recognition is unavailable, provide an accessible fallback instead of silently failing.
+
+# 7. TASK RESULT DESIGN
+
+Each task should present results in a consistent way.
+
+A result area should contain:
+
+- Task name.
+- Current status.
+- Concise result text.
+- Warnings or uncertainty when needed.
+- Repeat control.
+- Stop or Cancel control when a task is active.
+
+For example, a successful object search might display:
+
+**Bottle found**
+
+“A bottle is visible toward the right side of the image.”
+
+The application should speak the result using the same text or an equivalent concise version.
+
+Do not expose internal model logs, stack traces or technical terminology in the normal user interface.
+
+If a target cannot be found, the application should say so clearly and offer a sensible next action. It should not invent a detection.
+
+# 8. THE LIVE-DETECTION SCREEN
+
+Live Detection needs a particularly clear and calm interface because it may run for an extended period.
+
+Show:
+
+- “Live detection is running.”
+- Camera status.
+- A way to change tasks using voice.
+- Pause.
+- Resume.
+- Stop.
+- The latest spoken announcement.
+- A readable history of recent announcements, if useful.
+
+Avoid filling the screen with continuously changing bounding boxes, charts or a stream of raw detections.
+
+The assistant should speak useful changes rather than announce the same object in every frame.
+
+For example:
+
+- First announcement: “A chair is visible toward the left.”
+- No announcement while the same scene remains unchanged.
+- New relevant detection: “A person is visible near the center.”
+
+The exact announcement policy should be based on tested behaviour and user feedback.
+
+When the user speaks, routine announcements should be suppressed so the microphone can receive the command. The application must prevent its own speech from repeatedly triggering unwanted voice commands.
+
+# 9. FIND OBJECT — AN INTERACTIVE ASSISTANCE FLOW
+
+Find Object should feel like a guided task, not a search box that merely returns a label.
+
+When the user says “Find bottle”:
+
+1. OmniLens confirms the target.
+2. The current frame is processed.
+3. If a suitable detection is found, the system speaks its approximate image position.
+4. If the target is not found and attempts remain, the system asks the user for a helpful new camera view.
+5. A fresh frame is processed.
+6. The system reports the result or explains that the target could not be found.
+7. The user can cancel at any time.
+
+Example:
+
+“Looking for a bottle.”
+
+“I can't see a bottle clearly. Slowly move the camera to your right.”
+
+“A bottle is visible near the center of the image.”
+
+The system should distinguish an unsupported target from a supported target that was simply not found.
+
+Do not promise exact physical distance or safe navigation from ordinary image coordinates.
+
+# 10. READ TEXT — MAKE INFORMATION EASY TO HEAR
+
+The Read Text experience should focus on getting useful text to the user quickly.
+
+When the user says “Read text”:
+
+1. Capture a fresh frame.
+2. Process the image and identify readable text.
+3. Extract text using OCR.
+4. Present the extracted content in a readable result area.
+5. Speak the content.
+6. Allow Repeat, Pause, Resume and Stop.
+
+If no readable text is found, explain that clearly.
+
+If the text is partially recognized or uncertain, do not silently fill in missing words.
+
+For long documents, support chunked speech playback, so the user can stop or resume without restarting the entire operation unnecessarily.
+
+The visual result should preserve line breaks and basic structure where practical, but it should not imitate a complex document editor.
+
+# 11. OBSTACLE AWARENESS AND OTHER ADDITIONAL FEATURES
+
+Additional features should reuse the core camera, processing, task-routing and speech infrastructure.
+
+## Obstacle Awareness
+
+Report relevant supported detections in the configured portion of the image, using careful language.
+
+For example:
+
+“A chair is visible in the lower part of the camera view.”
+
+Do not imply a guaranteed safe path or exact distance unless a validated depth and navigation system is implemented.
+
+## Product and Sign Reader
+
+Allow users to ask for visible product labels, room signs and other printed text.
+
+Reuse OCR and OpenCV processing. Clearly distinguish recognized text from any external product information.
+
+## Currency Recognition
+
+Support only denominations and conditions validated by the implemented model.
+
+Communicate uncertainty when the image is unclear. Do not claim to authenticate banknotes unless a separate, validated counterfeit-detection capability exists.
+
+## Person Presence and Basic Activity Cues
+
+Describe supported visual observations, such as the presence and approximate image position of a detected person.
+
+Only include specific actions when the selected model has demonstrated support for them. Do not infer identity, intentions or sensitive attributes.
+
+# 12. ACCESSIBILITY REQUIREMENTS
+
+Accessibility is a fundamental product requirement.
+
+## Screen readers
+
+- Use semantic HTML.
+- Give every interactive control a meaningful accessible name.
+- Associate form labels and instructions with their controls.
+- Expose task states through appropriate accessible status regions.
+- Avoid announcing every frame or every minor visual change.
+- Use headings and landmarks to make the interface navigable.
+- Ensure dynamically updated content remains understandable.
+
+## Keyboard navigation
+
+- Make all essential functions keyboard accessible.
+- Use visible focus indicators.
+- Ensure keyboard shortcuts do not interfere with text inputs.
+- Provide a clear route to Stop and Cancel.
+- Never require dragging or precise pointer movement to use a core task.
+
+## Colour and contrast
+
+- Support light and dark themes.
+- Maintain verified text and control contrast.
+- Avoid using colour as the only status indicator.
+- Do not use flashing effects.
+- Respect reduced-motion preferences.
+
+## Text sizing
+
+- Support browser zoom.
+- Allow larger text without clipping.
+- Avoid fixed-height result containers that hide long responses.
+- Keep buttons usable at larger text sizes.
+- Ensure the mobile layout reflows appropriately.
+
+## Speech and interaction
+
+- Keep spoken responses concise.
+- Avoid overlapping speech.
+- Allow Repeat, Pause, Resume and Stop.
+- Give important errors a spoken and readable explanation.
+- Ensure the interface remains usable if speech recognition or text-to-speech fails.
+
+Test with real screen readers, keyboard navigation and users with varied visual needs whenever possible. Do not claim full accessibility based on visual inspection alone.
+
+# 13. PRIVACY AND TRUST
+
+Because OmniLens uses a camera and potentially a microphone, the interface should communicate clearly when these capabilities are active.
+
+Include:
+
+- Camera and microphone permission explanations.
+- Clear active-session status.
+- Easy camera and microphone controls.
+- A concise privacy statement.
+- Disclosure when audio or images are sent to an external service.
+- Clear information about whether data is retained.
+- No unnecessary storage of raw images or audio.
+- Secure API communication.
+- No exposed API keys or credentials in frontend code.
+
+Do not claim that processing is entirely local if some requests are sent to AWS or another external service.
+
+The privacy information must describe the real implementation.
+
+# 14. SETTINGS AND HELP
+
+Keep advanced settings secondary to the main user experience.
+
+Possible settings:
+
+- Light or dark appearance.
+- Text size.
+- Speech rate, where supported.
+- Voice selection, where supported.
+- Spoken announcement verbosity.
+- Live-detection announcement frequency.
+- Keyboard shortcuts.
+- Camera selection when multiple devices exist.
+- Privacy information.
+- Accessibility help.
+
+Do not make users configure numerous settings before they can use the main features.
+
+Provide a simple help section with example voice commands and a short explanation of the four main tasks.
+
+# 15. MOBILE AND RESPONSIVE DESIGN
+
+The layout must work on phones, tablets and desktop browsers.
+
+On mobile:
+
+- Stack the camera, voice control, task buttons and results vertically.
+- Make primary controls easy to activate.
+- Preserve comfortable touch targets.
+- Avoid horizontal scrolling.
+- Keep Stop accessible.
+- Allow text enlargement.
+- Avoid placing critical controls beneath a camera preview that consumes the entire screen.
+
+On desktop:
+
+- Use a balanced camera-and-controls layout.
+- Maintain a comfortable maximum content width.
+- Use whitespace to distinguish sections.
+- Avoid oversized empty panels.
+
+The application should not become more complicated merely because the screen is larger.
+
+# 16. MOTION AND MICRO-INTERACTIONS
+
+Use subtle motion only when it communicates useful state.
+
+Examples:
+
+- A gentle transition when listening begins.
+- A restrained indicator while processing.
+- A clear change when a task completes.
+- A short visual cue when speech playback starts.
+
+Avoid constant pulsing, large particle effects, excessive scrolling animations and anything that may cause distraction or discomfort.
+
+Respect the user's reduced-motion preference.
+
+Do not rely on animation alone to announce state changes; use accessible text and, where appropriate, speech.
+
+# 17. PERFORMANCE AND TECHNICAL REQUIREMENTS
+
+The frontend should be responsive even when the backend takes time to process a frame.
+
+Requirements:
+
+- Avoid sending a request for every camera frame without a bounded scheduling policy.
+- Prevent duplicate requests from accumulating.
+- Associate responses with their originating task and frame.
+- Ignore obsolete results.
+- Handle request timeouts.
+- Provide a clear service-unavailable state.
+- Keep the microphone usable while appropriate background work runs.
+- Avoid unnecessary frontend rerenders.
+- Clean up camera, speech and event resources when components unmount.
+- Ensure the deployed frontend communicates with the actual vision backend.
+- Never show success before receiving evidence that the task succeeded.
+
+Keep model inference in the appropriate backend service rather than unnecessarily attempting to run large models inside the browser.
+
+# 18. PRESENTATION QUALITY
+
+OmniLens should be visually impressive enough to present to an international audience without compromising accessibility.
+
+Use:
+
+- A distinctive wordmark.
+- A strong hero headline.
+- Carefully composed camera and interface mockups.
+- Consistent iconography.
+- High-quality typography.
+- Clear content hierarchy.
+- Thoughtful spacing.
+- A restrained premium colour system.
+- Real product demonstrations.
+- Clear diagrams that explain the technology.
+- Authentic, respectful language.
+
+Avoid:
+
+- Generic AI stock illustrations that do not show the product.
+- Fake testimonials or fabricated user statistics.
+- Unsupported accuracy percentages.
+- Excessive neon colours.
+- Tiny text.
+- Icon-only navigation.
+- Unnecessary charts in the main assistant screen.
+- Unsubstantiated claims of safety or independence.
+- Decorative effects that compete with the user's task.
+
+The public website should make people want to learn more. The actual application should make users feel in control.
+
+# 19. RECOMMENDED FINAL INFORMATION ARCHITECTURE
+
+**Public website**
+
+1. Navigation
+2. Hero
+3. Mission and problem
+4. Four core capabilities
+5. How it works
+6. Voice-first interaction demonstration
+7. Accessibility principles
+8. Technology and architecture
+9. Privacy and limitations
+10. Call to action
+11. Footer
+
+**Accessible application**
+
+1. Compact header
+2. Camera and camera status
+3. Prominent voice control
+4. Four core task controls
+5. Current task status
+6. Spoken and readable result
+7. Repeat, Pause, Resume and Stop
+8. Accessible help
+9. Settings and privacy information
+
+This separation gives OmniLens a compelling public identity and a simple, usable core product.
+
+# 20. FINAL DESIGN OBJECTIVE
+
+OmniLens should be recognizable as a premium AI accessibility product: visually confident, technically credible, approachable and genuinely designed around the people it serves.
+
+The public website should make the mission understandable within seconds. The application should make the next action obvious. The voice controller should let the user switch tasks naturally. The visual system should remain attractive without sacrificing contrast, readability or control.
+
+**The ultimate design principle is simple:**
+
+“Beautiful enough to capture the world's attention. Accessible enough to put the user first. Reliable enough to earn their trust.”
+
+The final implementation must be validated against the actual React application, backend capabilities, browser support and accessibility testing results. Any feature that is not yet implemented should be clearly identified as planned rather than presented as working.
+
+## My strongest recommendation, bro ❤️
+
+Make the public landing page visually stunning, but keep the actual assistant screen calm, spacious and extremely easy to operate. Those two experiences should share the same branding without forcing blind users to navigate a marketing-heavy interface.
+
+The three things that will make OmniLens stand out are:
+
+1. A recognizable visual identity — midnight navy, warm ivory and accessible teal.
+2. A truly voice-first interaction — the user can say “Describe,” then “Read text,” then “Find bottle” without navigating back through menus.
+3. Real accessibility, not just accessibility-themed styling — screen-reader support, keyboard operation, high contrast, clear spoken status and reliable Stop/Cancel behaviour.
+
+That is the direction I would use for OmniLens: a beautiful global-facing product with a genuinely user-first assistant at its heart.

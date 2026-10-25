@@ -1,0 +1,1190 @@
+# OMNILENS — COMPLETE REPOSITORY AUDIT, BUG FIXING, COMPUTER VISION ENGINEERING, CAMERA LIFECYCLE REPAIR, AND COMPETITION-READINESS MASTER PROMPT
+
+## ROLE AND MISSION
+
+Act as a senior full-stack engineer, computer-vision engineer, Python/ML engineer, accessibility specialist, QA engineer, security reviewer, and cloud deployment engineer.
+
+You are working on my existing GitHub project:
+
+**Repository:** `https://github.com/haripriya333999/OmniLens-opcv`
+
+**Project name:** OmniLens — AI-Powered Everyday Visual Assistance
+
+**Tagline:** “Understand your world. Through sound.”
+
+**Primary users:** Blind and low-vision users who need reliable spoken information about their surroundings.
+
+**Competition:** OpenCV AI Competition 2026, powered by AWS.
+
+Your task is to perform a complete, evidence-based audit of the actual repository, repair all confirmed bugs, improve incomplete implementations, verify functionality, and prepare the project for a credible competition submission.
+
+Do not merely generate a list of recommendations. Work directly in the existing workspace, inspect the source code, edit the real files, execute the available tests, and report the results.
+
+Do not assume that a feature works because a button exists, a README describes it, an API returns HTTP 200, or a model has been downloaded. Verify the complete flow from the user interface to the underlying processing engine and back.
+
+## 1. NON-NEGOTIABLE ENGINEERING RULES
+
+Follow these rules throughout the task.
+
+1. Inspect the complete project before making architectural changes.
+2. Create a Git checkpoint or a dedicated working branch before substantial modifications, if Git is available.
+3. Preserve existing working features, visual design, routes, accessibility controls, and useful user-facing text.
+4. Do not rewrite the entire application unnecessarily or replace working components with mock implementations.
+5. Do not remove functionality simply because it is difficult to fix.
+6. Do not add placeholder detections, fabricated OCR text, simulated navigation, fake model confidence, or hardcoded success messages.
+7. Never silently interpret a failed detection as proof that an area is safe.
+8. Never claim a model is ready merely because its package imports successfully.
+9. Never claim OpenCV 5 compliance merely because OpenCV is installed.
+10. Never claim AWS deployment compliance merely because an AWS SDK is imported.
+11. Do not suppress exceptions to make the application appear healthy.
+12. Do not downgrade dependencies, change model architectures, or remove existing features without checking compatibility and documenting the reason.
+13. Avoid unnecessary dependencies, especially large ML packages that could exceed the deployment platform's memory or storage limits.
+14. Never expose API keys, credentials, environment variables, personal data, or other secrets in the frontend, logs, screenshots, Git history, or README.
+15. Do not commit changes, push to GitHub, modify production services, or spend money on cloud resources without my explicit permission.
+16. Do not claim a command, test, deployment, camera release, or competition requirement has been verified unless there is actual evidence.
+
+If you encounter an environment limitation, distinguish it from a source-code bug and continue with every independent task you can complete.
+
+---
+
+# PHASE 1 — COMPLETE PROJECT DISCOVERY
+
+Before editing anything, inspect the entire repository.
+
+Examine:
+
+- `README.md`
+- `package.json` and the package lockfile
+- `tsconfig.json`
+- `vite.config.ts`
+- `index.html`
+- `server.ts`
+- `test_endpoints.ts`
+- `.gitignore`
+- `.env.example` or `.env.example` equivalents
+- All files under `src/`
+- All React components, hooks, services, utilities, types, and styles
+- All files under `backend/`
+- Python requirements, entry points, routes, detector, OCR, OpenCV processing, and worker code
+- Any model configuration, dataset manifests, evaluation scripts, or test directories
+- Existing deployment configuration and GitHub Actions workflows
+- All references to `getUserMedia`, `MediaStream`, `MediaStreamTrack`, `setInterval`, `setTimeout`, `requestAnimationFrame`, `fetch`, `AbortController`, camera state, and speech synthesis
+- All references to OpenCV, YOLO, EasyOCR, Gemini or other vision APIs, text-to-speech, geocoding, pedestrian routing, and AWS
+
+Generate an internal dependency map showing:
+
+1. Which component owns the camera.
+2. Which component starts and stops each vision feature.
+3. Which component performs each inference operation.
+4. How frontend requests reach the Node and Python backends.
+5. Which engine performs each computer-vision task.
+6. Where model files are loaded and cached.
+7. How backend readiness is determined.
+8. Which deployment environment executes each service.
+9. Which tests already exist and what they actually test.
+
+Identify duplicate implementations, unused code, circular dependencies, stale state, inconsistent response formats, dead endpoints, and conflicting configuration.
+
+Do not edit the project until you understand these relationships well enough to avoid breaking existing functionality.
+
+Create a file-by-file audit and prioritize issues as:
+
+- P0 — security vulnerability, severe camera lifecycle failure, or dangerous safety behavior.
+- P1 — major feature broken or deployment blocked.
+- P2 — important accuracy, reliability, accessibility, or maintainability issue.
+- P3 — optional improvement or polish.
+
+After discovery, begin fixing the issues instead of stopping to ask me to approve every individual change. Ask only when an essential decision cannot safely be inferred.
+
+---
+
+# PHASE 2 — FIX THE CAMERA LIFECYCLE COMPLETELY
+
+THIS IS ONE OF THE HIGHEST-PRIORITY REQUIREMENTS.
+
+Current source-level issues identified in the uploaded repository include:
+
+- `src/components/SafePathView.tsx`: `handleStopScanning()` stops the scanning interval but does not call `stopCamera()`.
+- `src/components/LiveDetectionView.tsx`: `togglePause()` pauses processing and speech but does not release the camera.
+- Camera startup in `LiveCameraFeed.tsx` and `LiveDetectionView.tsx` involves asynchronous `getUserMedia()` and delayed video attachment. A camera stream may resolve after the user has already stopped the feature.
+
+Inspect these files and every other camera-related component. Verify the current code before changing it, and search for additional camera owners.
+
+## 2.1 Establish one explicit camera lifecycle
+
+Implement a consistent lifecycle:
+
+`IDLE → STARTING → ACTIVE → STOPPING → IDLE`
+
+Include a recoverable `ERROR` state where appropriate.
+
+The state shown to the user must correspond to the actual camera lifecycle.
+
+Distinguish clearly between:
+
+- Pause analysis: camera may intentionally remain active, if this behavior is explicitly supported and clearly communicated.
+- Stop camera: all owned camera tracks must be stopped.
+- Stop feature: release the camera if the feature no longer needs it.
+- Navigate away: release camera resources owned by the departing feature.
+- Application shutdown or unmount: clean up all resources owned by the component.
+
+For OmniLens's existing Pause/Stop controls, decide on a clear and consistent behavior. Prefer making the primary Stop control release the camera completely. If Pause continues to retain the camera, label that behavior honestly and provide a separate Stop Camera action.
+
+Do not let a UI label say “Camera off” while any camera track owned by the feature remains live.
+
+## 2.2 Stop every owned camera track
+
+Implement and test a reliable cleanup function equivalent to:
+
+```ts
+function stopCamera() {
+  const stream = streamRef.current;
+
+  if (stream) {
+    stream.getTracks().forEach((track) => {
+      track.stop();
+    });
+  }
+
+  streamRef.current = null;
+
+  const video = videoRef.current;
+
+  if (video) {
+    video.pause();
+    video.srcObject = null;
+  }
+}
+```
+
+Adapt this to the real project architecture. Do not blindly paste duplicate cleanup functions into multiple components.
+
+If the project uses a shared camera hook or service, improve it so all features use consistent cleanup behavior.
+
+Stop every owned video and audio track, not just the video track.
+
+Release camera references, clear video attachments, and stop any related stream processing that is no longer required.
+
+## 2.3 Fix asynchronous startup races
+
+When `navigator.mediaDevices.getUserMedia()` is pending:
+
+- If the user presses Stop, the pending request must not leave a live stream attached afterward.
+- If the component unmounts, a subsequently resolved stream must be stopped immediately.
+- If the user switches features, the old feature must not reclaim the camera.
+- If Start is pressed repeatedly, duplicate streams must not be created.
+- If two requests race, only the current valid request may become active.
+
+Use a cancellation token, request generation identifier, lifecycle flag, or equivalent safe pattern.
+
+Do not assume `AbortController` can cancel a pending `getUserMedia()` request; it cannot directly cancel that browser permission request. Instead, guard the eventual promise resolution and stop any stream that arrives after cancellation.
+
+Remove arbitrary startup delays such as `setTimeout(..., 100)` if they are unnecessary. Wait for actual video readiness using appropriate events or a bounded, cancellable readiness mechanism.
+
+Handle permission denial, missing cameras, device disconnection, unsupported browsers, and failed playback gracefully.
+
+## 2.4 Clean up all asynchronous work
+
+Every camera feature must correctly manage:
+
+- `setInterval`
+- `setTimeout`
+- `requestAnimationFrame`
+- `cancelAnimationFrame`
+- pending network requests
+- repeated inference calls
+- speech synthesis and audio playback
+- event listeners
+- object URLs and other owned media resources
+
+Store timer identifiers and cancel them on stop and unmount.
+
+Use `AbortController` for cancellable HTTP requests where appropriate.
+
+Prevent stale responses from changing state after the feature stops.
+
+Prevent overlapping frame inference from building up an unbounded request queue. Use a single in-flight operation, a latest-frame-wins strategy, or a bounded queue.
+
+Ensure React effects have correct dependencies and cleanup. Test React Strict Mode behavior, including development-time effect setup and cleanup.
+
+## 2.5 Verify camera behavior manually
+
+Test this exact sequence:
+
+1. Start SafePath.
+2. Confirm the camera becomes active.
+3. Stop SafePath.
+4. Confirm the browser camera indicator turns off.
+5. Start Live Detection.
+6. Stop Live Detection.
+7. Confirm the camera indicator turns off.
+8. Start SafePath, then navigate to another page.
+9. Confirm the camera indicator turns off.
+10. Repeat Start and Stop at least ten times.
+11. Stop while camera permission is pending.
+12. Stop while an inference request is in flight.
+13. Simulate camera permission denial.
+14. Simulate a disconnected camera.
+15. Switch rapidly between camera-dependent features.
+
+Add automated tests using mocked media devices and streams where practical.
+
+A mocked test is not proof of real hardware behavior. Record which checks were automated and which were manually verified in an actual browser.
+
+---
+
+# PHASE 3 — MAKE CAMERA OWNERSHIP AND FEATURE SWITCHING RELIABLE
+
+Audit the application-wide navigation and camera ownership model.
+
+The app should not have several unrelated components independently acquiring the same camera without coordination.
+
+Choose an appropriate architecture based on the existing code:
+
+- A shared camera controller or hook.
+- Explicit feature-level ownership.
+- A camera lease or session model if simultaneous consumers are genuinely required.
+
+Do not introduce a complicated global state system unless the existing application needs one.
+
+When switching between Describe Surroundings, Find Object, Read Text, Live Detection, and SafePath:
+
+- Stop the previous camera session when it is no longer required.
+- Prevent duplicate streams.
+- Prevent stale frames from the previous feature appearing in the new feature.
+- Clear obsolete timers and inference state.
+- Preserve unrelated application features such as route planning when they do not depend on the camera.
+- Ensure the UI reflects the new feature's actual status.
+
+Test navigation between all camera-dependent features, not just direct Start/Stop buttons.
+
+---
+
+# PHASE 4 — REPAIR THE PYTHON BACKEND AND MODEL INITIALIZATION
+
+Inspect the actual backend entry point, detector implementation, OCR implementation, and `backend/requirements.txt`.
+
+A previously identified issue is that the declared requirements do not include the YOLO/EasyOCR/PyTorch stack used by the relevant implementation. Verify the imports and installation requirements before editing.
+
+## 4.1 Dependency correctness
+
+Create a reproducible dependency set compatible with the selected Python version and target deployment.
+
+Check the exact requirements for:
+
+- FastAPI
+- Uvicorn
+- OpenCV
+- NumPy
+- Pillow
+- Ultralytics, if used
+- PyTorch, if required by the selected detector
+- EasyOCR, if used
+- Other imports actually used by the backend
+
+Avoid adding packages that are not used.
+
+Do not blindly upgrade everything to the newest version. Resolve compatible versions and test installation from a clean environment.
+
+For deployment, document Python version, CPU/GPU assumptions, model downloads, system libraries, and memory requirements.
+
+Where supported, use lockfiles or pinned compatible versions to improve reproducibility.
+
+## 4.2 Model readiness must be truthful
+
+Review startup and health-check logic.
+
+Do not report the whole application as fully ready when one of its core engines is unavailable.
+
+Expose clear, non-sensitive status information such as:
+
+- API process available
+- OpenCV initialized
+- Detector loaded
+- OCR loaded
+- Required model file present
+- Optional speech engine available
+- External AI provider configured
+- Feature readiness and failure reason
+
+Separate process liveness from application readiness.
+
+A health endpoint may report that the API process is alive while separately reporting that OCR or object detection is unavailable.
+
+Do not expose stack traces, secrets, internal filesystem paths, or credentials in public health responses.
+
+Load expensive models once per worker where appropriate, rather than on every request.
+
+Avoid concurrent duplicate model initialization.
+
+If model loading fails, expose a useful diagnostic and prevent the UI from falsely promising that the capability is ready.
+
+## 4.3 Memory and performance
+
+Previously, the Python backend reportedly exceeded a 512 MiB Render memory limit. Verify this limitation rather than assuming it applies to the current deployment.
+
+Measure or estimate memory requirements for the selected detector, OCR engine, framework, and inference workload.
+
+If a chosen model cannot run within the available resources:
+
+- Evaluate a genuinely smaller compatible model.
+- Reduce unnecessary simultaneous model loading.
+- Avoid repeated loading of weights.
+- Process frames at a sensible resolution.
+- Limit concurrency and inference queues.
+- Use bounded timeouts and resource cleanup.
+- Document which capabilities are CPU-compatible and which need a GPU.
+
+Do not promise that YOLO plus EasyOCR plus PyTorch will fit within 512 MiB without evidence.
+
+Do not silently disable OCR or detection to save memory while reporting them as enabled.
+
+If the target environment cannot support the complete feature set, document the limitation and provide an explicit deployment configuration for a suitable environment.
+
+---
+
+# PHASE 5 — VERIFY REAL OPENCV 5 USAGE
+
+OpenCV 5 is a central requirement of the competition. Inspect the actual implementation and verify the precise OpenCV package and runtime version.
+
+Do not assume the Python package version and the C++ OpenCV version are interchangeable.
+
+## 5.1 Runtime verification
+
+Check:
+
+- The actual Python package version.
+- The runtime `cv2.__version__`.
+- Whether the deployed environment installs the intended version.
+- Whether the code uses the relevant APIs supported by that version.
+- Whether the required OpenCV functionality is actually executed during inference.
+
+If the deployment's Python wheels or dependencies do not provide a compatible OpenCV 5 build, identify the supported installation route, platform constraints, and necessary build process. Do not label an OpenCV 4.x runtime as OpenCV 5.
+
+Avoid installing conflicting packages such as `opencv-python`, `opencv-python-headless`, and incompatible contrib variants simultaneously.
+
+Use a single appropriate OpenCV distribution for each environment unless there is a verified reason otherwise.
+
+## 5.2 Make OpenCV perform meaningful work
+
+Trace the complete image path:
+
+`Camera frame → image decoding → OpenCV processing → vision engine → postprocessing → frontend response`
+
+Verify that the processed image or processed representation is actually consumed by the relevant downstream computation.
+
+Audit existing preprocessing, color conversion, resizing, denoising, contrast enhancement, edge analysis, image-region handling, tracking, or other OpenCV operations.
+
+Remove cosmetic operations that have no meaningful impact, but do not remove useful working processing.
+
+Implement an appropriate, measurable OpenCV-based contribution based on the actual product needs. Possible contributions include:
+
+- Efficient frame resizing and format conversion.
+- Region-of-interest extraction for targeted text or object processing.
+- Contrast enhancement for OCR in poor lighting.
+- Image quality and blur estimation.
+- Frame-to-frame motion or temporal change analysis.
+- Image-based obstacle cues, with clearly documented limitations.
+- Detection-result visualization or geometric postprocessing.
+
+Choose the operations that genuinely help the existing system. Do not add all of them merely to inflate the feature list.
+
+If YOLO, OCR, or an external vision API is used, explain the complementary role of OpenCV.
+
+Do not claim that traditional image processing replaces semantic object recognition when it does not.
+
+## 5.3 Measure the OpenCV contribution
+
+Add reproducible evaluation where feasible.
+
+Compare relevant baseline and improved configurations using the same input samples.
+
+Measure appropriate quantities such as:
+
+- Frame processing latency.
+- End-to-end inference latency.
+- Frames processed per second.
+- CPU and memory usage.
+- OCR quality with and without enhancement.
+- Detection or tracking behavior under changing lighting.
+- Performance on representative low-quality images.
+
+Do not invent improvements or fabricate metrics. If no reliable baseline or dataset is available, provide the measurement scripts and report that the experiment remains incomplete.
+
+---
+
+# PHASE 6 — MAKE OBJECT DETECTION HONEST AND USEFUL
+
+Audit the detector, model loading, inference endpoint, response schema, and Find Object interface.
+
+## 6.1 Verify actual supported classes
+
+Determine exactly which classes the installed model can detect.
+
+If the application uses a standard COCO-trained YOLO model, distinguish its fixed class vocabulary from open-vocabulary detection.
+
+Do not claim arbitrary object detection unless the actual selected model supports it.
+
+If users search for an unsupported target:
+
+- Explain that the target is not supported by the current detector.
+- Offer a relevant alternative if one exists.
+- Do not fabricate a match.
+- Do not return an unrelated detection as a successful result.
+
+If broader vocabulary is a required feature, evaluate an appropriate compatible model and its actual resource requirements before introducing it.
+
+## 6.2 Detection quality
+
+Verify:
+
+- Image decoding and channel order.
+- Model initialization and readiness.
+- Confidence threshold.
+- Bounding-box scaling.
+- Coordinate clipping.
+- Class-name mapping.
+- Non-maximum suppression behavior where applicable.
+- Empty detections.
+- Malformed images.
+- Low-light frames.
+- Small and partially occluded objects.
+- Multiple objects with the same label.
+- Inference errors and timeouts.
+
+Use real inference results. Do not hardcode boxes or descriptions.
+
+## 6.3 Spatial descriptions
+
+Make spatial descriptions consistent and grounded in actual coordinates.
+
+Use understandable categories such as:
+
+- Far left
+- Left
+- Center
+- Right
+- Far right
+
+Where supported by the image and relevant to the user's request, describe approximate vertical placement such as upper, middle, or lower portions of the frame.
+
+Use normalized bounding-box coordinates so descriptions behave consistently across image sizes.
+
+Do not use clock-face directions.
+
+Do not claim that an object is physically near the user's body merely because it appears near the image center.
+
+Image position is not equivalent to real-world distance. Only report distance if a validated depth or ranging method supports it.
+
+When describing multiple detections, prioritize the requested object and relevant nearby context instead of producing an excessively long list.
+
+## 6.4 Find Object behavior
+
+Test:
+
+1. A supported target clearly visible.
+2. A supported target not visible.
+3. An unsupported target.
+4. Multiple instances of the target.
+5. A partially occluded target.
+6. An invalid image.
+7. A detector timeout.
+8. A model that failed to load.
+
+The spoken result must distinguish a successful detection, no detection, unsupported target, and processing failure.
+
+---
+
+# PHASE 7 — FIX OCR AND READ TEXT END TO END
+
+Audit the complete OCR path, including image capture, preprocessing, text extraction, reading order, response formatting, and speech.
+
+## 7.1 OCR initialization and dependencies
+
+Ensure that OCR readiness reflects whether the engine has actually initialized successfully.
+
+Do not set `ocr_enabled: true` as a substitute for a working OCR engine.
+
+Make startup errors and missing model files diagnosable.
+
+Avoid downloading large OCR model weights on every request.
+
+Handle offline startup or unavailable external services explicitly.
+
+## 7.2 Image preprocessing
+
+Use OpenCV preprocessing only where it improves the actual OCR task.
+
+Evaluate:
+
+- Resizing.
+- Grayscale conversion.
+- Contrast enhancement.
+- Denoising.
+- Deskewing when appropriate.
+- Cropping relevant text regions.
+- Poor lighting and glare.
+- Motion blur and out-of-focus images.
+
+Do not apply transformations that destroy useful character detail.
+
+If multiple preprocessing strategies are used, keep them bounded and evaluate whether they improve recognition enough to justify their cost.
+
+## 7.3 OCR result correctness
+
+Verify that the system:
+
+- Extracts actual recognized text.
+- Preserves useful punctuation and line breaks.
+- Handles empty results honestly.
+- Does not replace unreadable text with invented content.
+- Maintains a sensible reading order for multi-line text.
+- Avoids duplicate recognition where possible.
+- Returns a clear error when OCR fails.
+
+Support signs, labels, documents, and ordinary printed text to the extent the selected OCR engine can reliably handle them.
+
+Do not promise handwriting recognition or language support unless it has been verified.
+
+## 7.4 Speech integration
+
+Read the actual OCR response through the existing speech mechanism.
+
+Prevent multiple overlapping utterances when new frames arrive.
+
+Provide Stop Speaking and Repeat controls where appropriate.
+
+Handle empty text, speech errors, and interrupted reading.
+
+Ensure that camera capture and speech playback have independent lifecycle handling unless the feature intentionally couples them.
+
+Create tests for OCR responses containing multiple lines, empty strings, punctuation, Unicode, and processing errors.
+
+---
+
+# PHASE 8 — FIX DESCRIBE SURROUNDINGS
+
+Inspect the real Describe Surroundings implementation and verify whether it uses local models, an external vision API, or a combination.
+
+The description must be grounded in the supplied image.
+
+Requirements:
+
+- Capture a fresh frame when the user requests a description.
+- Avoid accidentally sending a stale frame from a previous feature.
+- Return a concise, useful spoken description.
+- Mention important visible objects and spatial relationships only when supported.
+- Do not invent people, objects, actions, exits, or environmental details.
+- Handle failed inference, timeouts, and empty responses.
+- Cancel obsolete requests when the feature stops.
+- Prevent repeated identical descriptions from overwhelming the user.
+- Stop speech promptly when the user requests it.
+- Do not require continuous video processing if the user requests a one-time description.
+
+If the current implementation sends the original image to a vision model while separately performing OpenCV preprocessing, determine whether that is intentional. Make the image-processing path consistent with the actual task, and document which representation each engine receives.
+
+Do not make an external AI API mandatory for local features unless the architecture requires it and the limitation is clearly communicated.
+
+---
+
+# PHASE 9 — REPAIR SAFEPATH AND OBSTACLE AWARENESS
+
+SafePath is a safety-sensitive accessibility feature. Treat false reassurance as a serious defect.
+
+Inspect the current detector, frame analysis, alert rules, temporal logic, camera lifecycle, speech behavior, and UI.
+
+## 9.1 Truthful safety states
+
+Define clear states, such as:
+
+- Camera unavailable.
+- Initializing.
+- Analyzing.
+- Obstacle detected.
+- Potential obstacle.
+- No obstacle detected in the analyzed frame.
+- Detection uncertain.
+- Analysis failed.
+- Stopped.
+
+Use only states justified by actual processing results.
+
+A successful HTTP response with an empty detections array does not prove that the path is clear.
+
+A failed model, blank frame, stale result, or unsupported scene must never trigger a reassuring “safe” message.
+
+If no obstacle is detected, say that no obstacle was detected in the analyzed frame rather than guaranteeing that the path is clear.
+
+## 9.2 Obstacle alert logic
+
+Review the actual capabilities of the selected detector and implement suitable safeguards.
+
+Where appropriate:
+
+- Prioritize objects in the relevant lower/forward portion of the frame.
+- Track detections across frames to reduce noisy alerts.
+- Avoid repeatedly speaking the same alert every frame.
+- Escalate alerts when evidence supports increased urgency.
+- Distinguish uncertain visual evidence from confirmed detection.
+- Avoid claims about physical distance without validated depth estimation.
+- Avoid presenting image-based heuristics as a certified collision-avoidance system.
+
+Document the limitations of monocular camera-based obstacle awareness.
+
+Do not treat a detected object as a complete estimate of collision risk without considering the method's limitations.
+
+## 9.3 Fail-safe handling
+
+If the camera stops, the detector fails, inference times out, or frames become stale:
+
+- Stop issuing new obstacle conclusions based on stale results.
+- Announce that obstacle analysis is unavailable when useful.
+- Ensure the UI indicates the failure.
+- Avoid claiming the user can safely continue.
+- Release resources correctly when the user stops the feature.
+
+Provide a clear accessibility disclaimer that SafePath is assistive guidance, not a substitute for a white cane, guide dog, trained orientation and mobility techniques, or other established mobility support.
+
+---
+
+# PHASE 10 — VERIFY SAFEPATH NAVIGATION SEPARATELY
+
+Determine exactly how navigation currently works.
+
+Do not assume that camera obstacle awareness and pedestrian routing are the same feature.
+
+Inspect geocoding, location permissions, route generation, map integration, turn-by-turn instructions, API keys, and error handling.
+
+If pedestrian navigation is implemented:
+
+- Verify the route provider and supported travel mode.
+- Handle location permission denial.
+- Handle inaccurate or unavailable location.
+- Handle network failure and unavailable routes.
+- Clearly distinguish planned route instructions from live obstacle observations.
+- Prevent route instructions from being presented as real-time obstacle detection.
+- Do not invent directions, intersections, distances, or turn instructions.
+- Keep navigation controls usable without camera access when navigation does not depend on the camera.
+- Cancel obsolete requests when a route is changed or stopped.
+
+If pedestrian routing is missing or incomplete, implement only what can be supported reliably by the existing architecture and available credentials. Otherwise, clearly identify the missing integration and provide a working, truthful error state.
+
+Never embed secret routing API keys in frontend source.
+
+---
+
+# PHASE 11 — ACCESSIBILITY AND USER EXPERIENCE
+
+Preserve the existing design language and improve accessibility without replacing the entire UI.
+
+Review the application from the perspective of a blind or low-vision user.
+
+Check:
+
+- Semantic buttons and headings.
+- Accessible names for icon-only buttons.
+- Keyboard navigation.
+- Screen-reader announcements for important state changes.
+- Visible focus indicators.
+- Text and control contrast.
+- Large, obvious Start, Stop, Read, Find, Repeat, and Speak controls.
+- Logical tab order.
+- Clear error messages.
+- Responsive layouts.
+- No color-only status indicators.
+- Speech cancellation and interruption.
+- Microphone and camera permission explanations.
+- Avoidance of repetitive or overwhelming audio.
+- Accessible loading and processing states.
+
+Ensure that controls do not change meaning silently.
+
+If keyboard shortcuts are supported, document them and prevent them from triggering unexpectedly while a user is typing into a text field.
+
+Do not claim the app is fully accessible based only on visual inspection. Use automated accessibility checks and manual keyboard/screen-reader testing where available, and report what was actually tested.
+
+---
+
+# PHASE 12 — FRONTEND, API, AND SERVER RELIABILITY
+
+Inspect `server.ts`, the Vite configuration, React API calls, Python endpoints, and deployment behavior.
+
+## 12.1 Server startup
+
+The Node server should respect the environment-provided port:
+
+```ts
+const port = Number(process.env.PORT) || 3000;
+```
+
+Adapt the actual server implementation, bind appropriately for the deployment environment, and avoid introducing a second competing listener.
+
+Verify how development and production modes serve the frontend.
+
+Ensure the Python backend and Node server are configured as intended rather than assuming they run in the same process or container.
+
+## 12.2 API integration
+
+For every endpoint, document:
+
+- Method and path.
+- Input schema.
+- Output schema.
+- Authentication requirements, if any.
+- Timeout behavior.
+- Error format.
+- Resource requirements.
+- Expected status codes.
+
+Ensure frontend and backend agree on the response schema.
+
+Use request validation and reasonable request-size limits.
+
+Handle malformed JSON, missing fields, unsupported file formats, oversized images, and unavailable dependencies.
+
+Use appropriate timeouts and cancellation.
+
+Do not allow unbounded inference concurrency or unlimited request queues.
+
+## 12.3 OpenCV worker
+
+Inspect the worker process and how it is launched.
+
+If `server.ts` invokes `python3`, verify that the target environment actually has the correct executable and environment.
+
+Do not assume the Windows executable, Linux executable, and hosted deployment environment are interchangeable.
+
+Use a configurable Python executable or an appropriate service boundary when necessary.
+
+Capture useful stderr diagnostics without leaking secrets.
+
+Handle worker crashes, timeouts, shutdown, and cleanup.
+
+Avoid starting a new worker for every frame unless that architecture is deliberate and demonstrably safe.
+
+If a worker is unnecessary, simplify the design only after confirming that doing so preserves functionality.
+
+## 12.4 External AI APIs
+
+Inspect all external vision, language, OCR, and speech API calls.
+
+- Keep credentials on the server.
+- Validate input.
+- Set bounded timeouts.
+- Handle rate limits.
+- Handle unavailable providers.
+- Avoid leaking raw provider errors to users.
+- Avoid logging entire images or sensitive text unnecessarily.
+- Do not send camera frames to third-party services without the expected user-facing behavior and appropriate privacy disclosure.
+- Provide useful fallback behavior when appropriate.
+
+Never fabricate a successful response when a provider fails.
+
+---
+
+# PHASE 13 — SECURITY AND PRIVACY AUDIT
+
+Audit the entire repository for security problems.
+
+Check:
+
+- Committed `.env` files.
+- Exposed API keys and tokens.
+- Unsafe CORS configuration.
+- Missing input validation.
+- Unsafe file handling.
+- Unbounded image uploads.
+- Path traversal.
+- Command injection through shell execution.
+- Unsafe subprocess arguments.
+- Insecure public endpoints.
+- Unnecessary debug endpoints.
+- Dependency vulnerabilities.
+- Sensitive logs.
+- Unintended storage or retention of camera images.
+- Unnecessary location collection.
+- External data transmission without appropriate disclosure.
+
+Use safe subprocess argument handling rather than concatenating untrusted values into shell commands.
+
+Keep secrets in server-side environment variables.
+
+Update `.gitignore` and the example environment file as needed.
+
+If a real secret has already been committed, identify the exposure and recommend revocation and rotation. Do not assume deleting the file in a new commit removes it from Git history.
+
+Do not print secret values in the audit report.
+
+Do not introduce authentication or complex security infrastructure unnecessarily, but protect sensitive endpoints appropriately for the intended deployment.
+
+---
+
+# PHASE 14 — AWS AND COMPETITION REQUIREMENTS
+
+Inspect the official OpenCV AI Competition 2026 requirements and the repository's actual implementation before declaring readiness.
+
+The project must substantively use OpenCV 5 and meaningfully execute a component on AWS if those are required by the current competition rules.
+
+## 14.1 AWS integration
+
+Determine which component should run on AWS based on the existing architecture, model requirements, available budget, and competition constraints.
+
+A meaningful deployment might run image processing, inference, an API, or another real application component.
+
+Do not count an unused AWS SDK, an AWS badge, or an unrelated static website as substantive AWS execution.
+
+Verify:
+
+- Deployment architecture.
+- Environment variables.
+- Startup commands.
+- Health checks.
+- API reachability.
+- Memory and CPU limits.
+- Model loading.
+- Timeouts.
+- Logging and diagnostics.
+- CORS and frontend/backend connectivity.
+- Reproducible deployment steps.
+- Cost implications.
+
+Do not provision or modify paid resources without permission.
+
+If AWS access or credentials are unavailable, prepare the required configuration and commands, then clearly mark the actual cloud deployment as unverified.
+
+## 14.2 Competition documentation
+
+Prepare accurate documentation covering:
+
+1. Problem statement.
+2. Target users and intended impact.
+3. Solution and key features.
+4. Architecture diagram.
+5. OpenCV 5 implementation and specific contribution.
+6. ML and OCR engines.
+7. AWS component and deployment.
+8. Dataset sources and licenses.
+9. Evaluation methodology.
+10. Actual performance results.
+11. Failure cases and limitations.
+12. Privacy, accessibility, and responsible use.
+13. Installation and configuration.
+14. Local development.
+15. Testing.
+16. Deployment.
+17. Known issues.
+
+Do not invent team members, benchmarks, evaluation results, datasets, model licenses, or cloud infrastructure.
+
+Clearly distinguish implemented features, partially implemented features, and planned features.
+
+If a live demo, competition video, or deployment URL is required, provide a checklist and verify only what can actually be verified.
+
+---
+
+# PHASE 15 — DATASETS AND EVALUATION
+
+Inspect any existing dataset manifests, evaluation scripts, and test fixtures.
+
+Verify that datasets are actually available and legally usable for the intended purpose.
+
+Do not assume that a manifest proves that a dataset was downloaded, used for training, or evaluated.
+
+Do not introduce a large training pipeline unless it is needed and supported by the available resources.
+
+Create or improve reproducible evaluation scripts for:
+
+- Object detection.
+- OCR.
+- Scene description where a defensible evaluation method exists.
+- Image preprocessing.
+- SafePath alert behavior.
+- End-to-end latency.
+- Camera resource cleanup.
+- Backend readiness and failure handling.
+
+Use metrics appropriate to each task.
+
+Examples include precision, recall, mAP for detection where ground-truth annotations are available, character or word error rate for OCR, and latency percentiles for runtime performance.
+
+Do not report mAP, character accuracy, or other numerical results without running the relevant evaluation on suitable labeled data.
+
+Record the test dataset, split, configuration, model version, and evaluation command.
+
+For scene descriptions, do not invent an accuracy score without a valid evaluation method.
+
+Include representative failure cases, such as poor lighting, blur, occlusion, empty scenes, small text, unsupported objects, and inference failure.
+
+---
+
+# PHASE 16 — AUTOMATED TESTS AND REGRESSION COVERAGE
+
+Create a practical test suite using the tools already present in the project, adding dependencies only when justified.
+
+## Frontend tests
+
+Test:
+
+- Camera Start and Stop.
+- Pause versus Stop semantics.
+- Pending camera permission during Stop.
+- Component unmount during camera startup.
+- Rapid Start/Stop cycles.
+- Switching between features.
+- Cleanup of timers and animation frames.
+- Cancellation of obsolete API requests.
+- Speech stopping and restarting.
+- Unsupported target handling.
+- OCR empty results.
+- API failure and timeout UI.
+- Navigation permission denial.
+- Correct status announcements.
+
+## Backend tests
+
+Test:
+
+- API health and readiness.
+- Detector unavailable.
+- OCR unavailable.
+- Model initialization failure.
+- Invalid image input.
+- Empty image.
+- Malformed request.
+- Unsupported content type.
+- Oversized input.
+- Inference timeout.
+- No detections.
+- Unsupported class.
+- Empty OCR output.
+- OCR output with multiple lines.
+- Worker crash.
+- Dependency import failure.
+- Consistent response schemas.
+
+Use mocks for external APIs and hardware where appropriate, but make the distinction between unit tests and real integration tests explicit.
+
+## End-to-end tests
+
+Where the environment permits, verify the complete user flow:
+
+`User action → camera capture → image processing → inference → response → speech or visual result → Stop → resource cleanup`
+
+Use a small, documented set of representative images and expected outcomes.
+
+Do not make network-dependent or hardware-dependent tests appear to pass by silently skipping their important assertions.
+
+---
+
+# PHASE 17 — RUN TESTS AND FIX REGRESSIONS
+
+After implementing fixes:
+
+1. Install frontend dependencies from the lockfile.
+2. Run TypeScript checks.
+3. Run the production frontend build.
+4. Run frontend tests.
+5. Create or activate the intended Python environment.
+6. Install backend dependencies.
+7. Run Python syntax checks.
+8. Run backend tests.
+9. Run endpoint integration tests.
+10. Start the development environment using the documented commands.
+11. Test frontend/backend connectivity.
+12. Test model initialization where resources permit.
+13. Verify camera lifecycle behavior.
+14. Inspect the logs for errors and warnings.
+15. Re-run the relevant tests after each subsequent fix.
+
+Use the commands appropriate to the actual package manager and test framework in the repository. Do not assume a test script exists; inspect `package.json` first.
+
+Do not stop after the first error. Diagnose the root cause, fix it where feasible, and continue with independent checks.
+
+If a command cannot run because a required runtime, network connection, credential, hardware device, or deployment environment is unavailable, report that limitation precisely.
+
+Never fabricate successful build output or test results.
+
+---
+
+# PHASE 18 — README, CONFIGURATION, AND DEVELOPER EXPERIENCE
+
+Update the README to match the final implementation.
+
+Include:
+
+- Accurate feature list.
+- Architecture.
+- Required software versions.
+- Frontend installation.
+- Backend installation.
+- Environment variable setup.
+- Model download/setup instructions.
+- Local development commands.
+- Production build instructions.
+- Testing commands.
+- Deployment configuration.
+- API documentation.
+- Known limitations.
+- Troubleshooting.
+- Privacy considerations.
+- Competition-specific implementation details.
+
+Provide a safe `.env.example` with variable names and non-secret placeholders only.
+
+Ensure a new developer can follow the instructions from a clean checkout without depending on undocumented local state.
+
+Remove unsupported performance claims, inaccurate feature descriptions, and unverified competition-compliance statements.
+
+Do not place fake deployment URLs, API keys, or dummy evaluation results in the README.
+
+---
+
+# PHASE 19 — REQUIRED EXECUTION ORDER
+
+Follow this execution order:
+
+**Stage A — Discover:** inspect all files, map the architecture, identify root causes, and establish a checkpoint.
+
+**Stage B — Critical repairs:** fix camera lifecycle, asynchronous races, false safety states, resource leaks, security vulnerabilities, and backend startup blockers.
+
+**Stage C — Core features:** fix detection, OCR, scene descriptions, speech, and SafePath integration.
+
+**Stage D — OpenCV 5:** verify the runtime and implement or correct substantive OpenCV processing.
+
+**Stage E — Deployment:** fix environment configuration, startup, model readiness, memory issues, and frontend/backend connectivity.
+
+**Stage F — Quality:** improve accessibility, error handling, API contracts, and regression tests.
+
+**Stage G — Competition readiness:** correct documentation, architecture diagrams, evaluation scripts, limitations, and reproducible setup.
+
+**Stage H — Verification:** execute available tests, inspect logs, repeat failed checks after fixes, and produce a final audit report.
+
+Do not stop after writing the audit report. Continue with implementation and testing until you have completed everything possible in the current environment.
+
+If time or environment constraints prevent complete verification, prioritize critical defects and clearly report what remains.
+
+---
+
+# PHASE 20 — FINAL DELIVERABLES
+
+When finished, provide a structured report containing:
+
+## A. Executive summary
+
+Explain the overall condition of the project and what has genuinely been improved.
+
+## B. Files changed
+
+For every changed file, state:
+
+- File path.
+- Original problem.
+- Specific modification.
+- Why the modification is necessary.
+- Relevant tests.
+
+## C. Bugs fixed
+
+List confirmed bugs fixed and the evidence supporting each fix.
+
+Distinguish confirmed fixes from suspected issues that still need runtime verification.
+
+## D. Camera lifecycle verification
+
+Report whether these were tested:
+
+- Stop releases all camera tracks.
+- Video elements are detached.
+- Pending camera startup cannot reactivate the camera after Stop.
+- Switching features cleans up the previous session.
+- Timers and in-flight processing are handled correctly.
+- Repeated Start/Stop cycles work.
+- Camera indicator was manually verified in a browser.
+
+Never claim the browser camera indicator was checked unless it actually was.
+
+## E. Computer-vision verification
+
+Report:
+
+- Actual OpenCV runtime version.
+- Which OpenCV operations run in the real inference path.
+- Actual detector and OCR engines.
+- Model readiness.
+- Supported object classes.
+- Measured results and evaluation methodology.
+- Unverified capabilities.
+
+## F. Deployment status
+
+State whether the frontend builds, the backend starts, model initialization succeeds, the endpoints work, and the hosted deployment was tested.
+
+Mark each as `PASS`, `FAIL`, or `NOT VERIFIED`, with evidence.
+
+## G. Test report
+
+List commands executed, results, failures, and environmental limitations.
+
+## H. Competition readiness
+
+Evaluate each relevant requirement individually:
+
+- OpenCV 5 usage.
+- Meaningful AWS execution.
+- Technical implementation.
+- Accessibility and user impact.
+- Evaluation evidence.
+- Architecture documentation.
+- Reproducibility.
+- Responsible use.
+- Demo and submission materials.
+
+Use `PASS`, `PARTIAL`, `FAIL`, or `NOT VERIFIED` only when supported by evidence.
+
+## I. Remaining work
+
+List all unresolved critical issues first, followed by important and optional improvements.
+
+For every unresolved issue, state what blocks it and the next concrete action.
+
+## J. Final operating instructions
+
+Give the exact commands I should run in VS Code/PowerShell to install, start, test, and build the project locally.
+
+Also state the environment variables and external services I must configure, without revealing secrets.
+
+---
+
+# DEFINITION OF DONE
+
+The task is complete only when:
+
+- The actual repository has been inspected.
+- Confirmed critical bugs have been fixed where possible.
+- Camera Stop releases the camera resources owned by the stopped feature.
+- Asynchronous camera startup and stale requests are handled safely.
+- Backend dependencies and model readiness are correct.
+- Object detection and OCR failures are handled honestly.
+- SafePath does not falsely promise that the route is safe.
+- The OpenCV 5 implementation has been verified rather than assumed.
+- AWS deployment requirements have been checked against the actual architecture.
+- Security and privacy issues have been addressed.
+- Automated tests and available builds have been executed.
+- Documentation matches the implementation.
+- Remaining limitations are reported truthfully.
+
+A successful compilation alone does not satisfy the definition of done.
+
+A working mock does not prove that the real model works.
+
+A healthy API does not prove that all engines are ready.
+
+A successful camera mock test does not prove that physical hardware releases correctly.
+
+A public website does not prove that every backend feature works.
+
+An OpenCV dependency does not prove substantive OpenCV 5 usage.
+
+An AWS SDK import does not prove meaningful AWS execution.
+
+**Final instruction:** Start by inspecting the actual repository and its current Git state. Then execute this plan methodically, editing the existing code, running real checks, fixing regressions, and maintaining an evidence-based record of what is verified. Prioritize reliability and user safety over impressive claims or superficial completion. Do not stop at recommendations, and do not fabricate success.

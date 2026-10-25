@@ -1,0 +1,5 @@
+Dataset Name,Official URL,License,Task / Purpose,Key Classes / Annotations,Split / Size,Download Command / Instructions
+MS COCO 2017,https://cocodataset.org/,Creative Commons Attribution 4.0,Object Detection & Spatial Localization,"80 everyday classes (person, chair, bottle, dining table, laptop, phone, etc.)",118k train / 5k val,"http://images.cocodataset.org/zips/val2017.zip (download val2017 images & annotations)"
+TextOCR (Facebook Research),https://textvqa.org/textocr/,CC-BY 4.0,Scene Text Reading & OCR,"Scene text, signs, logos, word bounding polygons",28k images / 900k words,git clone https://github.com/facebookresearch/TextOCR.git
+ICDAR 2015 Robust Reading,https://rrc.cvc.uab.es/?ch=4,Non-commercial research,Incidental Scene Text Recognition,"Bilingual text, tilted signs, store names",1000 training / 500 testing,"Download from RRC portal (ch4_test_images.zip)"
+COCO Captions,https://cocodataset.org/#captions-2015,CC-BY 4.0,Scene Understanding & Accessibility Description,"5 human-annotated descriptive sentences per image",82k train / 40k val,"Included in annotations_trainval2017.zip"

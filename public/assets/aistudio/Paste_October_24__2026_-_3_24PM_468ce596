@@ -1,0 +1,691 @@
+Bro ❤️🔥 this time we need to go much deeper than “fix all five features.” We need Antigravity to act like a senior AI engineer, computer-vision researcher, backend debugger, accessibility specialist, and QA engineer working together.
+
+Your OmniLens must not merely display results. Every feature must receive the correct input, run the correct AI model or navigation service, return a trustworthy result, and communicate it properly to a blind or low-vision user.
+
+The most important change is this: Antigravity must prove each feature works through real end-to-end tests instead of simply changing code and claiming success.
+
+Here is a much more comprehensive master prompt you can paste into Antigravity with your existing OmniLens repository open.
+
+# OMNILENS — EXTREME ENGINEERING RECOVERY, AI ACCURACY OPTIMIZATION, END-TO-END FUNCTIONALITY, AND ACCESSIBILITY VALIDATION
+
+## 1. Your role and mission
+
+Act as a **senior full-stack engineer, computer-vision engineer, AI/ML researcher, backend reliability engineer, accessibility specialist, and software test engineer** working on my existing OmniLens application.
+
+**Project:** OmniLens — AI-Powered Everyday Visual Assistance\
+**Tagline:** Understand your world. Through sound.\
+**Primary users:** Blind and low-vision individuals.
+
+### The critical problem
+
+All five core features are currently failing to fulfil their intended purposes reliably. The application is not consistently recognizing the real environment, finding requested objects, reading real-world text, detecting possible obstacles, or providing usable destination-based walking navigation.
+
+I do not want a superficial UI improvement, a frontend-only patch, a demonstration with hard-coded outputs, or a list of suggestions.
+
+**I want you to investigate the actual repository, discover the root cause of every failure, implement the necessary fixes, and verify that the complete application genuinely works.**
+
+The five features are:
+
+1. **Describe Surroundings** — accurate visual scene understanding and spoken descriptions.
+2. **Find Object** — reliable target-object recognition and spatial guidance.
+3. **Read Text** — accurate OCR and accessible text-to-speech.
+4. **SafePath Obstacle Awareness** — camera-based detection and cautious spoken alerts.
+5. **SafePath Walking Navigation** — real destination search, pedestrian routing, and turn-by-turn guidance.
+
+The application must be useful to its intended users, not merely visually impressive.
+
+The objective is to achieve the **highest measurable accuracy, reliability, responsiveness, and accessibility supported by the available models and validated tests**. Never promise perfect recognition, absolute safety, or 100% accuracy without evidence.
+
+---
+
+## 2. Mandatory rule: investigate before changing code
+
+Start by examining the complete existing repository, including:
+
+- Frontend components, pages, routing, hooks, state management, and event handlers.
+- Camera capture, microphone input, speech recognition, and text-to-speech.
+- Every API service, endpoint, request schema, and response schema.
+- Express/Node.js server and Python/FastAPI backend, if both are present.
+- AI model initialization, inference code, model weights, preprocessing, and postprocessing.
+- Gemini or other vision-model integration.
+- YOLO object detection and class mapping.
+- EasyOCR or other OCR implementations.
+- OpenCV preprocessing and SafePath tracking.
+- Navigation and geocoding integrations.
+- Configuration files, dependency manifests, environment variables, and deployment configuration.
+- Existing tests, logs, README documentation, and error handling.
+
+Do not assume that a feature is implemented correctly simply because its component or API route exists.
+
+### Trace the entire execution chain
+
+For every feature, trace:
+
+**User action → input acquisition → input validation → frontend handler → request construction → backend endpoint → configuration and credentials → actual model/service execution → result validation → backend response → frontend state update → visible result → spoken result.**
+
+At each stage, determine whether the data is correct, current, complete, and actually being used.
+
+Investigate, where relevant:
+
+- Incorrect endpoint URLs or HTTP methods.
+- Missing, malformed, oversized, or incorrectly encoded image payloads.
+- Incorrect Base64 data or MIME types.
+- Stale React state and incorrect hook dependencies.
+- Race conditions, duplicate requests, and overlapping inference.
+- Responses arriving after a feature has been stopped.
+- Incorrect response parsing or mismatched data structures.
+- Silent exceptions, empty success responses, and swallowed errors.
+- Invalid API keys, missing environment variables, and quota exhaustion.
+- CORS, network, timeout, and deployment configuration errors.
+- Missing or incompatible Python and JavaScript packages.
+- Models that fail to load or require more memory than the deployment provides.
+- Incorrect model class mappings, thresholds, or image dimensions.
+- Frontend components calling a different implementation from the one being tested.
+- TTS cancellation failures, speech conflicts, and inaccessible status messages.
+- Features that work locally but fail on the deployed website.
+
+For each root cause, record the evidence, affected files, exact correction, and test that verifies the correction.
+
+**Do not perform an unnecessary full rewrite. Preserve useful existing code, architecture, working components, and user-facing functionality wherever possible.**
+
+---
+
+## 3. Establish a reliable foundation before optimizing accuracy
+
+Before improving the AI models, ensure that the application can reliably capture input, communicate with its backend, execute inference, and return results.
+
+### Camera and image pipeline
+
+Verify that:
+
+- The camera permission request works.
+- The selected camera stream is valid.
+- Captured frames contain actual image data.
+- Width, height, orientation, MIME type, and encoding are correct.
+- Frames are not blank, corrupted, or accidentally stale.
+- The correct frame reaches the intended model.
+- Image preprocessing does not destroy relevant details.
+- Camera tracks are released when the feature stops.
+- Errors are communicated when the camera is unavailable or obstructed.
+
+### Backend and inference pipeline
+
+Verify that:
+
+- Each endpoint accepts the expected request.
+- Input validation rejects invalid payloads safely.
+- The intended model actually runs.
+- Model readiness reflects real initialization and inference capability.
+- Inference exceptions are visible in diagnostic logs.
+- Responses contain validated, documented fields.
+- The frontend distinguishes successful inference from a failed request.
+- Cancellation and request ordering prevent stale results from being announced.
+- Model and API failures produce clear, actionable error messages.
+
+### Deployment
+
+Check the local and deployed configurations independently.
+
+Verify startup commands, port configuration, CORS, environment variables, dependency installation, model availability, API configuration, memory usage, CPU/GPU requirements, and provider quotas.
+
+Do not expose secrets in the frontend bundle or commit them to Git.
+
+If the deployed environment cannot support a particular model, evaluate a feasible alternative. Do not silently replace real inference with a simulated result.
+
+---
+
+## 4. Feature One — Describe Surroundings
+
+### Intended outcome
+
+When a user activates Describe Surroundings, OmniLens must capture the current view, genuinely analyse the image, and explain the important visible information in clear, concise, natural speech.
+
+### Required implementation
+
+1. Capture a fresh frame from the active camera.
+2. Validate that the frame contains usable visual information.
+3. Send the image to the configured vision model.
+4. Verify that the model actually processes the current image.
+5. Parse and validate the model response.
+6. Display the result and make it available through speech.
+7. Support immediate Stop Speaking and reliable Repeat.
+8. Ensure a newer request supersedes an obsolete result when appropriate.
+
+The description should prioritize useful information, such as:
+
+- Important objects and their visible properties.
+- Doors, windows, handles, frames, curtains, fans, furniture, and other supported objects.
+- People and clearly observable activities.
+- Relevant signs and visible text when available.
+- Approximate image-relative positions: left, centre, right, upper area, or lower area.
+- Important spatial relationships that are actually supported by the image.
+
+Do not claim that an object is physically close, reachable, safe to approach, or at an exact distance merely because it appears large in the image.
+
+### Difficult visual conditions
+
+Test:
+
+- Dim lighting and darkness.
+- Bright sunlight and backlighting.
+- Glare and reflections.
+- Motion blur and camera shake.
+- Cluttered scenes.
+- Partially hidden objects.
+- Small objects and distant objects.
+- Unfamiliar environments.
+- Visually similar objects.
+
+Use suitable image preprocessing or alternative models only when measured tests show that they improve the results.
+
+### Accuracy requirements
+
+Descriptions must not invent objects, actions, text, or spatial relationships.
+
+Where the model is uncertain, use appropriately cautious language. Where the image cannot be interpreted reliably, explain that limitation instead of presenting a fabricated description.
+
+Evaluate factual correctness, missed important information, hallucinated details, response latency, and whether the spoken description is useful.
+
+---
+
+## 5. Feature Two — Find Object
+
+### Intended outcome
+
+A user requests a specific object, and OmniLens identifies whether that object is visible and communicates its supported position in the camera view.
+
+### Required implementation
+
+- Accept the target through an accessible text field and voice input if supported.
+- Validate empty, invalid, ambiguous, and unsupported requests.
+- Normalize spelling and resolve reasonable synonyms without changing the user's intended target.
+- Capture a fresh frame and send it to the actual detector.
+- Verify that the detector supports the requested category.
+- Return genuine detections, bounding boxes, confidence scores, and image-relative positions where supported.
+- Handle multiple instances of the same object.
+- Provide an honest result when the target is not detected.
+- Distinguish a successful search with no matching detection from a model or network failure.
+
+### Object coverage
+
+Evaluate the current model's real capabilities instead of assuming that it recognizes every object.
+
+If a closed-set model such as a standard COCO-trained YOLO model cannot recognize important requested objects, investigate suitable alternatives such as:
+
+- Open-vocabulary object detection.
+- Text-conditioned object detection.
+- Vision-language models.
+- A hybrid detector and vision-model pipeline.
+
+Compare these options using the same evaluation examples. Consider accuracy, class coverage, localization quality, latency, memory, privacy, cost, licensing, and deployment feasibility.
+
+Potential test targets should include ordinary objects, doors, door handles, windows, window grills, curtains, fans, glasses, packaged food, and other objects relevant to the intended users. Include human activities or gestures only where a suitable, validated model supports them.
+
+### Spatial guidance
+
+Use image geometry to report positions such as:
+
+- “The object appears on your left.”
+- “The object is near the centre of the camera view.”
+- “The object appears on your right.”
+
+Use more detailed horizontal or vertical zones only when they are consistently defined and validated.
+
+Do not convert bounding-box size into an unsupported exact distance. Do not tell the user to reach, grab, or walk toward an object solely because the detector identifies it.
+
+### Testing
+
+Create a labelled test set containing supported and unsupported objects, multiple instances, partial occlusion, different lighting, different distances, and visually similar objects.
+
+Measure:
+
+- Precision and recall.
+- False positives and missed detections.
+- Localization quality.
+- Per-class performance.
+- End-to-end successful searches.
+- Latency and failure rates.
+
+Optimize for the intended use case, not just a high aggregate benchmark score.
+
+---
+
+## 6. Feature Three — Read Text
+
+### Intended outcome
+
+When the user activates Read Text, OmniLens captures real text from the environment, extracts it accurately, preserves the reading order, and reads it aloud.
+
+### Required implementation
+
+1. Capture and validate the actual image.
+2. Verify that the image reaches the intended OCR engine.
+3. Inspect the existing OCR implementations and identify which one is active.
+4. Compare available approaches, including Gemini-based vision/OCR and EasyOCR where applicable.
+5. Correctly handle image rotation, perspective, contrast, blur, and resolution when doing so improves recognition.
+6. Extract text in a sensible reading order.
+7. Validate the returned text and preserve meaningful punctuation and line breaks.
+8. Display and speak the extracted text.
+9. Support Repeat and immediate Stop Speaking.
+10. Report unreadable, incomplete, or uncertain text honestly.
+
+Test signs, packaging, labels, documents, and other intended text sources.
+
+Do not silently discard recognized text. Do not fabricate missing words, numbers, expiry dates, prices, warnings, or instructions.
+
+If OCR produces uncertain text, distinguish it from confidently recognized text. If the image is unreadable, explain the problem and suggest a useful next step, such as repositioning the camera or improving lighting.
+
+### OCR evaluation
+
+Build a representative dataset with ground-truth transcriptions.
+
+Evaluate:
+
+- Character Error Rate (CER).
+- Word Error Rate (WER).
+- Reading-order correctness.
+- Omitted text.
+- Incorrect numbers and important words.
+- Performance across font sizes, angles, backgrounds, lighting, and image quality.
+- End-to-end latency and failure rate.
+
+Give special attention to numbers, labels, and short instructions, where one recognition error can materially change the meaning.
+
+---
+
+## 7. Feature Four — SafePath Camera-Based Obstacle Awareness
+
+### Intended outcome
+
+SafePath uses the live camera and validated computer-vision capabilities to alert the user to potentially relevant visible obstacles.
+
+This is an assistive awareness feature, not a certified collision-avoidance system.
+
+### Required implementation
+
+- Trace the active camera-to-inference pipeline.
+- Identify the actual model, supported classes, and preprocessing implementation.
+- Ensure inference operates on recent, valid frames.
+- Fix overlapping requests, stale results, tracking failures, and duplicate alerts.
+- Evaluate relevant obstacles, including people, furniture, bags, poles, and other supported categories.
+- Investigate suitable improvements to object detection and scene analysis.
+- Test OpenCV brightness correction, CLAHE, denoising, resizing, and other preprocessing only when appropriate.
+- Compare changes against the original baseline using the same labelled test set.
+- Stabilize repeated detections when tracking is supported.
+- Avoid excessive speech and alert flickering.
+- Provide accessible Pause, Resume, Repeat, Stop, and Stop Speaking controls.
+
+### Alert behaviour
+
+Use short, cautious messages when the visual evidence supports them.
+
+Examples:
+
+- “A possible obstacle is visible on your left.”
+- “A person is visible near the centre of the camera view.”
+- “I cannot reliably assess the current view. Please use your established mobility method.”
+
+Do not claim an object is dangerously close, predict a collision, or assert that a crossing is safe without a separately validated capability.
+
+Most importantly:
+
+**An empty detection list does not prove that the path is clear. A failed camera, unavailable model, invalid frame, timeout, or failed inference must never be interpreted as a successful obstacle assessment.**
+
+Distinguish explicitly between:
+
+- Potential obstacle detected.
+- No obstacle detected by the current system in this frame.
+- Camera or image quality insufficient.
+- Model unavailable.
+- Analysis failed.
+- Feature paused or stopped.
+
+Do not announce “path clear” as a guarantee.
+
+### Evaluation
+
+Use labelled scenes in controlled conditions to measure missed obstacles, false alerts, latency, temporal stability, and performance under different lighting and occlusion conditions.
+
+Test the complete spoken-alert pipeline, not only the detector.
+
+Never instruct users to rely on OmniLens instead of a cane, guide dog, orientation-and-mobility training, or established mobility practices. Do not encourage uncontrolled testing near roads, stairs, traffic, or other hazards.
+
+---
+
+## 8. Feature Five — SafePath Destination-Based Walking Navigation
+
+### Intended outcome
+
+The user can specify a real destination and receive accessible pedestrian directions from a genuine navigation provider.
+
+This is separate from camera-based obstacle awareness. The two features should coordinate their speech, but they must not be confused with one another.
+
+### Required implementation
+
+Evaluate a genuine geocoding and pedestrian-routing provider. Verify its current API capabilities, walking-route support, coverage, pricing, licensing, and setup requirements before choosing it.
+
+Implement:
+
+1. Accessible text or voice destination entry, where supported.
+2. Real place and address search.
+3. Clear spoken presentation of candidate destinations.
+4. Confirmation of the selected destination.
+5. Clarification when a destination is ambiguous.
+6. A real pedestrian route from the selected origin to the confirmed destination.
+7. Turn-by-turn instructions based on verified provider responses.
+8. Route progress and distance information only when supported by reliable data.
+9. Rerouting when the provider supports it and sufficient location information is available.
+10. Immediate Stop Navigation and Stop Speaking controls.
+11. A practical fallback to an established navigation application.
+
+### Location and route reliability
+
+Handle:
+
+- Location permission denied.
+- Poor GPS accuracy.
+- Stale location.
+- Location updates that stop arriving.
+- Destination search failures.
+- Ambiguous addresses.
+- No available walking route.
+- Network outages.
+- Invalid provider credentials.
+- API quotas and billing restrictions.
+- Route deviations.
+- Failed or delayed rerouting.
+
+Never fabricate directions, distances, arrival estimates, sidewalk availability, accessible crossings, or safe passage.
+
+If reliable navigation is unavailable, tell the user and offer the available fallback.
+
+### Navigation and obstacle-alert coordination
+
+Create a shared, priority-aware speech manager.
+
+- Urgent, validated obstacle alerts may interrupt ordinary navigation speech.
+- Navigation instructions should not be continuously suppressed by repetitive detections.
+- Duplicate alerts should be reduced.
+- Stale navigation instructions must not be spoken after a route changes.
+- Stopping navigation must stop navigation announcements.
+- Stopping speech must stop current speech immediately.
+- Camera analysis must not claim that a mapped route is physically safe.
+- Navigation must not claim that the camera has confirmed a route is clear.
+
+Minimize unnecessary storage and logging of precise location data.
+
+Test real provider responses, destination confirmation, location loss, GPS drift, route deviation, cancellation, and recovery from connectivity failures.
+
+---
+
+## 9. Build a shared reliability and accessibility architecture
+
+Do not independently patch the same problems in five places. Identify shared components that should be reliable across the entire application.
+
+### Central request lifecycle
+
+Where appropriate, implement a consistent lifecycle:
+
+`idle → requesting input → processing → success / no result / uncertain / error → stopped or reset`
+
+Use a clear state model rather than unrelated Boolean flags that can become inconsistent.
+
+Ensure that:
+
+- Only valid requests are submitted.
+- Duplicate requests are controlled.
+- Outdated responses are ignored.
+- Cancellation is handled correctly.
+- Loading indicators match actual processing.
+- Errors cannot masquerade as successful results.
+- The UI remains responsive during inference.
+- Camera and microphone resources are released when no longer needed.
+
+### Central speech scheduler
+
+Use a shared speech manager for descriptions, OCR, object search, obstacle alerts, navigation, and system messages.
+
+It must support appropriate priority, cancellation, deduplication, and prevention of stale speech.
+
+Do not allow two independent speech systems to continually interrupt one another.
+
+### Accessible controls
+
+Verify that:
+
+- Every primary action has an accessible name.
+- Controls work with a keyboard and screen reader.
+- Focus order is logical.
+- Important state changes are announced accessibly.
+- Camera, microphone, model, network, and location states are understandable.
+- Stop Speaking works even during a long announcement.
+- Repeat repeats the correct current result.
+- Pausing one feature does not unintentionally activate another.
+- Permission prompts explain why access is needed.
+- The interface remains usable at high zoom and on smaller screens.
+
+Maintain large, clear controls and avoid relying on colour alone to convey status.
+
+The Help and User Manual must describe the real implemented behaviour. Do not document shortcuts, voice commands, or features that do not exist.
+
+---
+
+## 10. Improve AI accuracy using evidence, not guesswork
+
+Do not assume that a larger model, higher resolution, lower confidence threshold, or extra preprocessing automatically improves accuracy.
+
+For every proposed optimization:
+
+1. Establish a baseline using a reproducible labelled dataset.
+2. Categorize the current failures.
+3. Identify which changes are likely to address those failures.
+4. Compare candidate models or configurations on the same held-out data.
+5. Measure accuracy, latency, memory, and failure rate.
+6. Check supported classes and model limitations.
+7. Tune thresholds using validation data and the consequences of false positives and false negatives.
+8. Evaluate preprocessing against the unmodified input.
+9. Test end-to-end spoken output.
+10. Keep the change only if evidence demonstrates an improvement or a justified trade-off.
+
+Prevent data leakage between training, validation, and test sets.
+
+Use appropriate metrics for each task. Detection precision and recall do not measure OCR accuracy; OCR metrics do not establish navigation safety; a successful HTTP response does not prove correct visual understanding.
+
+Where feasible, create repeatable automated tests and a manually labelled evaluation set. Record dataset size, ground-truth source, test conditions, and known limitations.
+
+If training or fine-tuning is genuinely needed, explain the required data, compute, annotations, time, and deployment implications before undertaking it.
+
+Never invent model performance, test results, or accuracy improvements.
+
+---
+
+## 11. Performance and deployment optimization
+
+Make the application responsive without sacrificing correctness.
+
+Investigate:
+
+- Model loading time.
+- Per-request inference time.
+- Image size and encoding overhead.
+- Unnecessary repeated model initialization.
+- Redundant API calls.
+- Frame-processing frequency.
+- Memory consumption.
+- Backend concurrency.
+- Request cancellation.
+- Provider rate limits.
+- Deployment cold starts.
+- Frontend bundle size where relevant.
+
+Choose optimizations that fit the actual hosting environment. If the deployment has insufficient memory for the selected model, select a feasible architecture or hosting option rather than leaving the feature permanently unavailable.
+
+Report local and deployed performance separately.
+
+Do not claim a performance improvement without measuring it under comparable conditions.
+
+---
+
+## 12. Mandatory end-to-end acceptance tests
+
+For every feature, verify the complete real interaction.
+
+| Feature               | Required proof                                                                                                                                     |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Describe Surroundings | A fresh camera frame reaches the real vision model, produces a grounded description, and is spoken correctly.                                      |
+| Find Object           | A requested supported object is detected and its image-relative position is communicated correctly, or a truthful no-detection result is returned. |
+| Read Text             | Actual image text is extracted, displayed, and spoken, with uncertain or unreadable content handled honestly.                                      |
+| SafePath Awareness    | A supported visible obstacle can generate an appropriate alert; invalid frames and inference failures are never reported as a clear path.          |
+| SafePath Navigation   | A confirmed real destination produces genuine pedestrian-route instructions, with accessible speech and correct error handling.                    |
+
+For all five features, also test:
+
+- Normal success.
+- Invalid input.
+- Camera or microphone permission denial where relevant.
+- Missing API credentials.
+- Unavailable model.
+- Network timeout.
+- Malformed response.
+- Empty or uncertain results.
+- Repeated activation.
+- Rapid switching between features.
+- Stop and cancellation.
+- Stale responses.
+- Local execution.
+- Deployed execution.
+
+Use real inputs and genuine model or provider responses. Mocked responses may be used for isolated automated unit tests, but they must never be presented as proof that the real feature works.
+
+Run the available tests, add regression tests for the identified failures, and fix any regressions introduced by the changes.
+
+---
+
+## 13. Execution order — follow this workflow
+
+### Phase A: Audit and reproduce
+
+Inspect the codebase and reproduce each failure. Identify the exact root cause and distinguish confirmed findings from hypotheses.
+
+### Phase B: Repair the shared foundation
+
+Fix camera capture, API connectivity, model initialization, response validation, request lifecycle, speech management, and deployment issues that affect multiple features.
+
+### Phase C: Repair each feature individually
+
+Fix Describe Surroundings, then Find Object, Read Text, SafePath Awareness, and SafePath Navigation. Adjust the order if the investigation shows that another dependency must be repaired first.
+
+For each feature, implement the fix, run its tests, inspect the actual result, and verify accessible output before marking it complete.
+
+### Phase D: Improve accuracy
+
+Establish a baseline, identify the dominant errors, compare suitable model and preprocessing options, and retain only evidence-supported improvements.
+
+### Phase E: Validate integration
+
+Test rapid feature switching, shared camera use, speech interruption, cancellation, network failures, and navigation/obstacle-alert coordination.
+
+### Phase F: Verify deployment
+
+Test the actual deployed application. A feature that works only on the developer's machine is not complete.
+
+### Phase G: Report the evidence
+
+Provide a final report listing the root causes, changed files, tests executed, measured outcomes, remaining limitations, and setup requirements.
+
+If an external credential, API key, billing account, or unsupported deployment environment blocks a feature, state that clearly and identify the exact action needed. Continue fixing everything else that can be fixed independently.
+
+Do not stop after producing a plan. Implement the changes wherever the available repository, tools, and permissions allow.
+
+---
+
+## 14. Strict rules you must follow
+
+1. Do not replace real AI inference with hard-coded outputs.
+2. Do not make buttons appear functional without connecting them to real behaviour.
+3. Do not conceal errors behind generic success messages.
+4. Do not silently return empty results after exceptions.
+5. Do not invent objects, OCR text, directions, distances, or benchmark results.
+6. Do not claim that every possible object is supported.
+7. Do not claim that a path is safe because no obstacle was detected.
+8. Do not claim that navigation is functional without testing a real routing integration.
+9. Do not claim a feature is fixed merely because the code compiles.
+10. Do not remove useful existing features without a demonstrated reason.
+11. Do not expose API keys or sensitive location data.
+12. Do not perform dangerous real-world mobility tests.
+13. Do not mark untested features as completed.
+14. Do not stop after improving the UI.
+15. Do not ask me to manually inspect every file if you can inspect and diagnose it yourself.
+16. If a test cannot be run, explain why and provide the next precise validation step.
+
+**Evidence is mandatory. A successful build, passing unit tests, or a working API endpoint alone does not prove that a feature provides correct accessibility assistance.**
+
+---
+
+## 15. Required final engineering report
+
+When implementation and validation are complete, provide:
+
+### A. Root-cause analysis
+
+For each of the five features, explain what was broken, why it failed, what evidence established the cause, and what was changed.
+
+### B. File-by-file changes
+
+List the actual files modified, the purpose of each change, and any important architectural decisions.
+
+### C. Model and service configuration
+
+Identify the actual model or external service used for each feature, its supported capabilities, configuration requirements, and limitations.
+
+### D. Test results
+
+List the tests actually executed, with pass/fail status and any blocked tests. Separate automated tests from manual end-to-end verification.
+
+### E. Accuracy and performance
+
+Provide measured before-and-after results where available, including dataset size, conditions, precision, recall, OCR error rates, latency, memory use, and failure rate as appropriate.
+
+If no reliable baseline or labelled dataset exists, state that explicitly. Do not manufacture a baseline.
+
+### F. Deployment status
+
+Report whether each feature works locally and on the deployed application. Identify missing environment variables, credentials, dependencies, billing requirements, or infrastructure limitations.
+
+### G. Remaining limitations
+
+Identify unsupported object classes, uncertain visual conditions, navigation limitations, unverified accessibility behaviours, and any other outstanding problems.
+
+### H. Final status of each feature
+
+Assign exactly one status to each feature:
+
+- **WORKING AND END-TO-END TESTED**
+- **PARTIALLY WORKING**
+- **BLOCKED BY A SPECIFIC DEPENDENCY**
+- **NOT IMPLEMENTED**
+- **IMPLEMENTED BUT NOT YET VERIFIED**
+
+Never label a feature “working” when only its interface or isolated backend has been tested.
+
+---
+
+## Final objective
+
+Transform the existing OmniLens application into a genuinely functional, carefully tested, accessible visual-assistance system.
+
+Prioritize correct recognition, honest uncertainty, real end-to-end functionality, reliable spoken feedback, safe failure handling, and measurable improvements over superficial complexity or impressive claims.
+
+Start by inspecting the existing repository and reproducing the five failures. Then fix the actual causes, implement regression tests, improve the system using measured evidence, and validate the deployed experience.
+
+**The deliverable is not a promise that OmniLens works. The deliverable is a working implementation accompanied by evidence showing what actually works, how accurately it works, and what limitations remain.**
+
+## Bro, how to use this properly 🔥
+
+1. Open your existing OmniLens repository in Antigravity.
+2. Paste the entire prompt above.
+3. Let it inspect the existing code and start the repairs. Approve file changes or terminal commands when you are comfortable with them.
+4. If it gives you only an audit report or a plan, tell it to continue implementing the fixes, not stop at recommendations.
+5. Once it finishes, ask it to show the actual test output and the exact files changed.
+
+One important thing, bro: no prompt can guarantee perfect AI accuracy. The goal is to eliminate the current failures, improve accuracy using real measurements, and make OmniLens clearly communicate when it cannot reliably recognize something. For an accessibility application, an honest warning is much better than a confidently wrong instruction.

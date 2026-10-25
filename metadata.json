@@ -1,0 +1,11 @@
+{
+  "name": "OmniLens — Voice-First AI Companion",
+  "description": "OmniLens is a voice-first visual companion for blind and low-vision users. Describes surroundings, finds everyday objects with spatial audio cues, reads text aloud, and provides continuous live spatial detection.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

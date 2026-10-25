@@ -1,0 +1,903 @@
+Bro ❤️🔥 for OmniLens, we need to define what absolutely correct detection means, how every object must be identified, how the system should avoid mistakes, and how it must verify its results before showing or speaking them.
+
+One important truth: no computer-vision system can guarantee 100% accuracy in every real-world condition. Our goal is to maximise accuracy, measure it rigorously, minimise false detections and missed objects, and never pretend an uncertain result is certain.
+
+# 1. What every correct detection must satisfy
+
+1\. Correct object identity
+
+Identify the actual visible object, not a visually similar but incorrect class. A bottle must not be labelled a cup, a phone must not be labelled a remote, and a person must not be labelled as another class.
+
+2\. Correct bounding box
+
+The box must surround the actual object, cover its visible extent as closely as practical, and exclude unnecessary background. It must stay correctly aligned with the camera image.
+
+3\. Every distinguishable instance
+
+If five separate supported objects are visible, the system should detect all five when their visibility and image quality allow it. It must neither merge separate objects unnecessarily nor count one object multiple times.
+
+4\. Correct position and movement
+
+The label and box must correspond to the same object across frames. Relative position must be calculated from the correct image coordinates, including when the preview is mirrored.
+
+5\. Honest confidence
+
+A detection must not be presented as certain simply because the model produced a label. Ambiguous, blurry, partially visible or unsupported objects require appropriate uncertainty handling.
+
+# 2. How the system should detect objects correctly
+
+## Step 1 — Capture the right image
+
+Detection must operate on the actual, latest camera frame.
+
+- Capture frames without unnecessary delay.
+- Check that the frame is valid and not corrupted.
+- Handle low light, blur, glare and unusual camera angles.
+- Avoid processing old frames when newer ones are available.
+- Associate every result with the frame from which it was generated.
+
+If the camera frame is too blurry to support reliable identification, the system should communicate the limitation rather than confidently inventing a label.
+
+## Step 2 — Prepare the image without damaging accuracy
+
+The image must be converted into the model's required format while preserving the information needed for detection.
+
+- Resize using an appropriate method.
+- Preserve the aspect ratio where required.
+- Account for padding, cropping and scaling.
+- Use contrast enhancement only when it helps.
+- Avoid transformations that distort objects or discard important details.
+
+Critical requirement: the system must remember the exact transformations applied to the image. Otherwise, even a correct model prediction can produce an incorrect box on the screen.
+
+## Step 3 — Use the right model for the requested object
+
+A detector can only recognise objects reliably within its capabilities and training.
+
+For OmniLens:
+
+- Use a suitable object detector for supported everyday objects.
+- Validate its class labels and model version.
+- Use open-vocabulary detection when finding objects outside the ordinary detector's class list is a genuine requirement.
+- Do not assume a model recognises every possible household item.
+- Reuse loaded models rather than repeatedly loading them.
+
+If a user asks for a particular item that the selected detector cannot recognise, the system must use a suitable alternative if available or explain its limitation. It must not substitute a different object and pretend the request succeeded.
+
+## Step 4 — Validate every prediction
+
+Before rendering results, apply appropriate confidence filtering, duplicate suppression and class validation.
+
+The system should check:
+
+- Is the predicted class supported?
+- Is the confidence sufficient for the intended use?
+- Does the box have valid coordinates and dimensions?
+- Are two boxes duplicates of the same object?
+- Are separate nearby objects being incorrectly suppressed?
+- Does the prediction belong to the current frame?
+
+Confidence alone is not proof of correctness. A model can be confidently wrong, so its behaviour must also be evaluated against labelled test images.
+
+## Step 5 — Map the box to the exact preview
+
+This is especially important in your Live Detection feature.
+
+Suppose the model processes a resized, padded image, while the user sees a larger mirrored camera preview. The box coordinates must be transformed correctly back to the displayed image.
+
+Test all of these cases:
+
+- Normal preview.
+- Mirrored preview.
+- Different camera aspect ratios.
+- Resized and cropped images.
+- Portrait and landscape orientation.
+- Multiple objects close together.
+- Objects near the edges of the frame.
+
+A correct detection with an incorrectly positioned box is still an incorrect user-facing result.
+
+## Step 6 — Keep detections stable without inventing objects
+
+For continuous detection, use tracking or temporal filtering where beneficial.
+
+- Update boxes using fresh detections.
+- Associate tracked objects with the correct detections.
+- Prevent identity switches when similar objects cross paths.
+- Remove stale boxes promptly when objects disappear.
+- Avoid excessive flickering without hiding genuine movement.
+- Never allow a tracker to make an absent object appear continuously detected.
+
+The system should balance stability with responsiveness: smoothing must not introduce significant lag.
+
+# 3. Correctness requirements for all four features
+
+## Live Detection
+
+Object and box accuracy
+
+Every displayed label must correspond to a real, supported object in the associated camera frame. Boxes must be spatially correct, separate objects must be distinguished, and results must update promptly.
+
+Reject: fabricated boxes, wrong class labels, boxes attached to the wrong objects, stale detections and duplicate instances.
+
+## Find Object
+
+The system must match the user's requested target against actual visible evidence.
+
+- Find the correct object, not just something visually similar.
+- Identify multiple instances when they are distinguishable.
+- Report left, centre or right using the correct image orientation.
+- Do not invent exact distances or claim that an undetected object is absent from the room.
+- Distinguish an unsupported target from an unsuccessful search.
+  ## Read Text
+
+OCR must faithfully represent the actual visible text.
+
+- Preserve characters, numbers, punctuation and reading order.
+- Do not silently replace unclear characters with guesses.
+- Handle multi-line text and multiple text regions in the correct order.
+- Report unreadable or partially visible text honestly.
+- Ensure that displayed text and spoken text agree.
+  ## Describe Surroundings
+
+The description must be grounded in the actual scene.
+
+- Mention relevant visible objects and their spatial relationships.
+- Distinguish what is clearly visible from what is uncertain.
+- Avoid inventing objects, activities, distances or environmental hazards.
+- Keep the description concise and useful for the user.
+- Ensure the spoken description corresponds to the current image, not an earlier one.
+
+# 4. How to achieve high accuracy without sacrificing speed
+
+Accuracy and speed must be optimised together, not traded away blindly.
+
+| Area                 | Correct approach                                                                    |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| Model selection      | Choose a model based on measured accuracy and latency on the target hardware.       |
+| Input resolution     | Use sufficient detail for small objects without unnecessary computation.            |
+| Sensitivity          | Keep the UI default at 100% and map it to the actual detector settings.             |
+| Confidence threshold | Calibrate against representative data rather than guessing.                         |
+| Duplicate filtering  | Tune suppression to remove duplicate boxes without eliminating nearby real objects. |
+| Frame processing     | Prefer fresh frames and prevent unbounded request queues.                           |
+| Model lifecycle      | Initialise once and reuse resources.                                                |
+| Tracking             | Improve continuity while rejecting stale or incorrect identities.                   |
+| Image preprocessing  | Apply only transformations that improve recognition.                                |
+| Result validation    | Reject invalid, stale or unsupported outputs before display or speech.              |
+
+Remember, bro: 100% sensitivity does not mean 100% accuracy. Lowering the detection threshold can recover more real objects but may also produce more false positives. We must tune it against real test data while preserving your required 100% sensitivity setting.
+
+# 5. Prove that every detection is correct
+
+Do not rely on visual impressions alone. Build a representative evaluation set with manually verified ground-truth labels and boxes.
+
+## Required evaluation
+
+Precision
+
+Of the objects detected, how many were actually correct?
+
+Low precision means false detections.
+
+Recall
+
+Of the objects that should have been detected, how many were found?
+
+Low recall means missed objects.
+
+Bounding-box IoU
+
+How much does a predicted box overlap the correct ground-truth box?
+
+Use a documented evaluation threshold appropriate to the task.
+
+Latency and frame freshness
+
+How quickly does the correct result appear, and how old is the frame behind it?
+
+Record median and p95 latency, plus sustained FPS.
+
+Test in bright light, dim light, glare, cluttered rooms, different distances, partially occluded objects, moving scenes and objects near image edges. Evaluate each important class separately so strong performance on common objects does not hide failures on difficult ones.
+
+Also test OCR using exact transcription comparisons and assess scene descriptions for factual grounding.
+
+## 6. The final standard for OmniLens
+
+The acceptance standard should be:
+
+- No knowingly fabricated detections or results.
+- No confidently presented unsupported guesses.
+- Correct labels and properly aligned boxes for successfully detected objects.
+- High measured precision and recall on representative test data.
+- Honest handling of uncertain, blurry, hidden or unsupported objects.
+- Correct relative positions and consistent image orientation.
+- Fresh results with minimal latency and no stale detections.
+- Faithful OCR and scene descriptions.
+- The same correctness standards across all four features.
+
+The most important point: we should aim for maximum practical accuracy, but never claim absolute perfection without evidence. A reliable accessibility assistant must recognise what it can, detect and communicate uncertainty, and avoid presenting an incorrect result as fact.Bro ❤️🔥 let's define exactly how OmniLens must work to achieve the fastest practical response, high detection accuracy, and reliable spoken assistance across all four features.
+
+The goal is not merely to make the interface look fast. The camera, AI models, backend, frontend, and speech system must work together without unnecessary delays.
+
+# 1. The overall speed target
+
+These are proposed engineering targets for a warmed-up system on suitable hardware, not measured results from your current application.
+
+Live Detection
+
+Continuous detection and box updates
+
+## 15–30 FPS
+
+Target on suitable hardware
+
+Find Object
+
+First useful search result
+
+## 0.2–0.5 s
+
+Read Text
+
+Recognised text available
+
+## 0.3–1 s
+
+Describe Surroundings
+
+First useful description
+
+## 0.5–1.5 s
+
+These are ambitious targets. OCR, scene description, and speech may exceed them depending on the model, hardware, network and input complexity. The system must measure actual latency and optimise the slowest stage instead of promising an arbitrary time.
+
+Also, FPS is not the same as response latency. At 30 FPS, a frame interval is approximately 33 ms, but a detection result can still take longer to appear.
+
+# 2. The architecture that makes everything fast
+
+The processing pipeline should be efficient from the moment a frame is captured until the user sees or hears the result.
+
+1\. Camera capture
+
+Capture fresh frames without repeatedly restarting the camera.
+
+2\. Efficient image preparation
+
+Resize and transform only as needed; retain correct coordinate mappings.
+
+3\. Appropriate AI processing
+
+Use the right detector, OCR engine or vision model for each task.
+
+4\. Validate and prepare results
+
+Reject stale results, correct coordinate mapping, and format grounded output.
+
+Visual output
+
+Boxes, labels and text
+
+Spoken output
+
+Short, accurate speech
+
+## The most important engineering rules
+
+- Load AI models once and reuse them.
+- Avoid downloading or reinitialising models for each request.
+- Keep image processing minimal and avoid redundant image conversions.
+- Use asynchronous operations so the interface remains responsive.
+- Never queue unlimited camera frames or let old requests build up.
+- Give each feature a clear cancellation and stop mechanism.
+- Do not make cloud calls for every Live Detection frame when a suitable local model can handle the task.
+- Do not run multiple expensive models on the same frame unless the additional processing is necessary.
+- Start displaying a useful result as soon as it is available, without waiting for unrelated operations.
+
+# 3. Live Detection — the fastest and most accurate implementation
+
+This is the most important feature to optimise.
+
+[Combining YOLO Object Detection with Image Classification Models | VisionBrick](https://images.openai.com/static-rsc-4/17H6qfB4Q4oSJI5y_aUpSTAyuMv0W1YhPk4qDZkqQe75N5FeNrEUaBHnxFrX2fqQN1PMNlUI5lIh6VPcf0b-Z_TmnXa-Rr1WAoKhpeu0uwoB5OJQK408A3gfSmLmXfiXGXx3ywATjC-5iiBrK8Q-kbgGl9M-hiIEEJPMg3QgKns?purpose=inline)
+
+Step 1: Capture continuously
+
+Start the camera once when Live Detection opens. Read fresh frames at a rate the device can sustain. Do not restart the camera for every frame.
+
+[YOLO: The AI Model Powering Real-Time Object Detection | by Wicar Akhtar | Medium](https://images.openai.com/static-rsc-4/Fp_LqGz1v18i76gYTQHjqMDn8Hz010_vhtFlXLCvQfkIgpq12tCJ6ny01H837Hmd7Sk4f3rM2AVDclpMTF8QMlewTj0OX7g5L02jr8F5fsDCDDdD0sAOcpaDwfw_nUtD7iB5DT-BKAWg3qZh2XtIIMixvICbuXgBM-uFULNgsFs?purpose=inline)
+
+Step 2: Run a suitable local detector
+
+Reuse the loaded YOLO model. Select a model and input resolution that balance speed and accuracy on the actual hardware. GPU acceleration should be used only when available and beneficial.
+
+[Resolution Techniques for NNs](https://images.openai.com/static-rsc-4/Xfeq4Sa3c3K0oYc7vDkScgwtuce3LdNgdPYBxpfbI0cPRYCzBlzcuhZxH-UdSM085u5RejDVjgymMdax7-F1dDfewHFKSE7zVYBBUxM9a-A-sBJsRhtldIpdCsdZvGYx-C-vhvM_jUdSqRRIR9u9HmPDMgS0LRr1AMX1Ie3rfeI?purpose=inline)
+
+Step 3: Correct the boxes
+
+Convert predictions from model-input coordinates to the original frame and then to the displayed preview. Account for cropping, scaling, padding and mirroring exactly once.
+
+[Компьютерное зрение: от распознавания текста до изучения космоса | Yandex Cloud](https://images.openai.com/static-rsc-4/CYEAwbyWqkiKDutwASkE12IZfstAmVV5QlUmHAfUvBwVP7VhxwSRjvUv7V1tGjG65Bgv4OJLUMjGxPDyZz7M1oKaLvDATi4r9r7aA4Ve4utj863dBtQv586EGNVnrAVR-F9lebSCjnZtVxx1XvIC1XEtFhGawKL_AuDbpgdZUWc?purpose=inline)
+
+Step 4: Update immediately
+
+Display fresh detections as soon as inference finishes. Use tracking where appropriate, remove stale boxes, and avoid unnecessary animations that delay or misrepresent movement.
+
+### How Live Detection must behave
+
+Suppose the camera sees a bottle, a phone and a book.
+
+- It should identify each supported object correctly.
+- Each bounding box should enclose its own object.
+- If an object moves, its box should follow.
+- If the object leaves the frame, its detection should disappear promptly.
+- If the detector cannot confidently distinguish an object, it should not confidently mislabel it.
+- If an object is outside the model's supported classes, the system must not pretend it can recognise it reliably.
+
+Speed rule: maintain a bounded pipeline, ideally processing the latest frame when inference is busy rather than processing a backlog.
+
+Accuracy rule: maximum sensitivity must be mapped to the actual detector. A 100% sensitivity setting is not a 100% confidence threshold; accepting every weak prediction would produce more false positives.
+
+For a genuine accuracy assessment, compare predicted boxes against manually labelled ground-truth boxes, measure precision and recall, and test different object sizes, lighting conditions, camera angles and clutter levels.
+
+# 4. Find Object — quick, targeted search
+
+The system should not perform a slow, full scene-description workflow when the user simply asks, “Find my bottle.”
+
+1. Receive the requested object through voice or text.
+2. Capture or reuse a recent valid camera frame.
+3. Run the fastest suitable detection or target-matching method.
+4. Match the requested target against the model's supported classes.
+5. Return the visible instances and grounded relative positions.
+6. Start speaking as soon as the first useful result is ready.
+
+If the user asks for an object that the detector cannot recognise, the system can use an appropriate open-vocabulary model when available, or explain its limitation. It must not quietly substitute an unrelated class.
+
+For example, if a bottle is detected on the right side of the image, the system might say, “Bottle detected on your right.” It should not claim the bottle is one metre away unless the system has reliable distance information.
+
+# 5. Read Text — fast OCR without inventing characters
+
+OCR should focus on the actual captured text, not repeatedly analyse the whole scene.
+
+1. Capture a clear frame.
+2. Apply only the preprocessing that is useful, such as grayscale conversion, contrast enhancement or appropriate cropping.
+3. Run an efficient, initialised OCR engine.
+4. Return the recognised text and preserve its reading order.
+5. Display the text and start speech promptly.
+6. Use additional processing only if the initial result is insufficient.
+
+OpenCV preprocessing should improve difficult images where appropriate, but it cannot recover every detail from severely blurred or unreadable text. Repeated enhancement passes should not be automatic if they add latency without improving recognition.
+
+For medication labels, numbers, dates or other consequential text, uncertain characters must be reported as uncertain rather than guessed.
+
+# 6. Describe Surroundings — fast, grounded scene understanding
+
+Scene description may require a more capable vision model than ordinary object detection, so it should have its own optimised pipeline.
+
+1. Capture a fresh, representative frame.
+2. Resize it appropriately without losing important scene details.
+3. Send it to the chosen vision model using the most efficient supported inference path.
+4. Generate a concise description focused on useful visible information.
+5. Make the first useful result available and begin speech promptly.
+6. Avoid waiting for unnecessary extra commentary or repeated model calls.
+
+For example, a useful description might be: “A table is in front of you. A laptop is near the centre, with a bottle on its right.”
+
+It must not invent people, objects, actions or spatial relationships. If the image is unclear, it should say so.
+
+If a remote model is involved, network latency may dominate processing time. A faster local path or a more efficient supported API may help, but the actual improvement must be measured.
+
+# 7. Make speech fast without interrupting accuracy
+
+Speech is a separate source of delay. A result can be ready quickly while the user still waits for audio.
+
+- Initialise the speech service once when possible.
+- Avoid regenerating the same audio unnecessarily.
+- Start speaking when a useful result is available.
+- Keep spoken output concise.
+- Never let multiple responses talk over one another.
+- Stop old speech when the user explicitly cancels it or starts an operation that replaces it.
+- Ensure Repeat speaks the latest valid result.
+- Keep the interface responsive while speech is generated or played.
+
+For Live Detection, do not speak every detected object on every frame. That would make speech overwhelming and interfere with the user's ability to hear important information. Use controlled, meaningful spoken updates instead.
+
+# 8. Make all four features work together correctly
+
+| Requirement        | Expected behaviour                                                                               |
+| ------------------ | ------------------------------------------------------------------------------------------------ |
+| Camera lifecycle   | Start once, stop fully, and release all media tracks when finished                               |
+| Frame processing   | Use fresh frames, with bounded queues and no uncontrolled overlapping inference                  |
+| Model lifecycle    | Reuse loaded models and avoid unnecessary reinitialisation                                       |
+| Result correctness | Show only results grounded in the actual input                                                   |
+| UI rendering       | Avoid unnecessary rerenders and coordinate transformations                                       |
+| Speech             | Keep output responsive, non-overlapping and cancellable                                          |
+| Feature switching  | Cancel obsolete requests and prevent old results from appearing in a new feature                 |
+| Error handling     | Report real failures and offer an appropriate retry                                              |
+| Sensitivity        | Default to 100% and map it to actual detector behaviour                                          |
+| SafePath           | Remove it completely from the feature UI and associated navigation, while preserving shared code |
+
+# 9. Measure the speed instead of guessing
+
+For every feature, record:
+
+- Time to first result: from the user action or captured frame to a usable result.
+- Time to first speech: from the action to the beginning of spoken output.
+- Median latency and p95 latency: typical and slower-than-usual responses.
+- Live Detection FPS: how frequently fresh detections are displayed.
+- Frame age: how old the captured frame is when its result is displayed.
+- Accuracy: measured using representative labelled test data.
+
+Measure the stages separately: camera capture, preprocessing, model inference, postprocessing, network time, UI rendering and speech startup. This identifies the actual bottleneck.
+
+The system should be tested after a cold start and after models are warmed up. Performance claims must reflect the hardware and configuration used.
+
+## Final requirement for OmniLens
+
+Bro, the intended outcome is:
+
+- Live Detection: continuous, low-latency object detection with accurate labels, correctly aligned bounding boxes and minimal stale results.
+- Find Object: fast, targeted search with correct matches and honest relative positions.
+- Read Text: prompt, faithful OCR and quick speech without invented characters.
+- Describe Surroundings: fast, concise and grounded scene descriptions with prompt spoken output.
+
+All four must remain responsive, and stopping or switching features must cancel obsolete work. Preserve your existing colour scheme and the 100% sensitivity default; remove SafePath as planned.
+
+One important limitation: I haven't run your current code or measured its hardware performance. These are the implementation and verification requirements—not a claim that the current application already meets them. The next step is to measure the current pipeline, identify the slowest stages and correct the actual detection and processing problems before claiming the speed or accuracy has improved.Bro ❤️🔥 the biggest problem with OmniLens right now is not just speed — Live Detection must identify the correct objects, place the bounding boxes accurately, and update quickly enough to feel genuinely live. All four features must be fast, but each one needs a different approach to remain accurate.
+
+We should keep your existing colour scheme, remove SafePath as planned, and focus on the actual detection pipeline, image processing, response latency, and correctness. We must measure the real performance rather than simply claim that the system is fast.
+
+# 1. How fast should OmniLens respond?
+
+These are engineering targets to aim for, not measurements of your current application or guaranteed performance on every computer.
+
+Live Detection
+
+Continuous object detection and bounding-box updates.
+
+## 10–15 FPS
+
+Initial target
+
+Find Object
+
+From the user's request to the first useful, grounded result.
+
+## Under 500 ms
+
+Stretch target
+
+Read Text
+
+From capture to recognised text becoming available.
+
+## Under 1 s
+
+Stretch target
+
+Describe Surroundings
+
+From capture to the first useful scene description.
+
+## Under 1.5 s
+
+Stretch target
+
+These targets assume suitable hardware and an optimised pipeline. Cloud model calls, speech generation, network conditions and image complexity may make the last three targets difficult to achieve consistently. Measure both the time until the result is available and the time until spoken output starts.
+
+For Live Detection, 10–15 FPS means approximately 67–100 milliseconds between displayed updates. The system should process fresh frames instead of building up a queue of old ones.
+
+# 2. Live Detection must identify objects correctly
+
+Bro, this is the highest-priority issue. A detector is not accurate just because it draws boxes on the screen. It must identify the right object, place the box around the right object, use the right label, and keep the result aligned as the object moves.
+
+[Atlas200DK 部署 yolov11 调用海康威视摄像头实现实时目标检测 - 技术栈](https://images.openai.com/static-rsc-4/RAxUES3Mi1mugCvlsGAPtH9VsSPmXR3aP_EF6iZavhpvUJMi8ZEehh3Eq7h9h_6efQY7vic7lBEjkgsRC5bA6NIzF487ErkesUbEBJqCzH1zDet38cmHVRy4eVsfioIC532a211ib6fPxD77AHrABXJB8GlRWYdEJfaqKuTsfP4?purpose=inline)
+
+A. Correct object identification
+
+If the camera sees a bottle, the label should say `bottle`, not cup, vase or an unrelated class. The model must distinguish visually similar objects as well as its supported classes allow.
+
+[物体検出をAIで実施する際の導入手段まとめ | Hakky Handbook](https://images.openai.com/static-rsc-4/t0Xjt2UtCN3qk0FvQ0Nm1NcrkyRXCpsTw2xGbJk2fnxRANwMouicvFIgNhW74F8AMJUkluL9yVDk2Zp-g8PYmvKMVdHaJi4_Dvr60yLJj4EUyoRF3Z2L2hL-plgU07PUSGk7_RqhLcpRxpmi9-c1X4pwzUX9pNlbWq2q3ertBvc?purpose=inline)
+
+B. Accurate bounding boxes
+
+Each box must enclose the correct object as tightly as practical without cutting off visible parts or including large areas of the background. Coordinates must remain correct after image resizing, cropping, letterboxing or mirroring.
+
+[Create ai object detection and tracking system using computer vision by Dammoteck | Fiverr](https://images.openai.com/static-rsc-4/jjVWMUnpR97RkS5CiLsBbyozvyK69jECQ9XCOMjw7Kz32j40PmaHrRXcAXtBbXL8b9-N46ps87DzlaGd2gFFnNBN3abMQXwRap6_hkoETflqSKiLod0CqRm-m66G1vaEizhcJTqe1jSK4xhFk4M66eYkoSOLymmSWRzoJuh-CiY?purpose=inline)
+
+C. Detect all visible instances
+
+If three distinct bottles are visible, the system should detect each sufficiently visible bottle, not repeatedly report just one. Nearby and overlapping objects should have separate boxes where the model can distinguish them.
+
+[Компьютерное зрение: от распознавания текста до изучения космоса | Yandex Cloud](https://images.openai.com/static-rsc-4/CYEAwbyWqkiKDutwASkE12IZfstAmVV5QlUmHAfUvBwVP7VhxwSRjvUv7V1tGjG65Bgv4OJLUMjGxPDyZz7M1oKaLvDATi4r9r7aA4Ve4utj863dBtQv586EGNVnrAVR-F9lebSCjnZtVxx1XvIC1XEtFhGawKL_AuDbpgdZUWc?purpose=inline)
+
+D. Follow movement accurately
+
+Boxes must follow the objects across successive frames. They should not lag far behind, jump to unrelated objects, flicker excessively, or remain visible after the object disappears.
+
+### What must be fixed in the detection pipeline?
+
+- Use actual camera frames. Never return hardcoded labels, sample detections or cached results presented as current.
+- Use a suitable trained model. Load it once and reuse it. Check which classes it supports instead of assuming it can identify every object.
+- Correct the image-coordinate mapping. Convert model output coordinates back to the exact displayed camera frame, accounting for all image transformations.
+- Tune confidence and duplicate suppression. Your sensitivity setting should default to 100% and map to the actual detector configuration. Maximum sensitivity does not mean accepting every false detection.
+- Handle small and partially hidden objects. Test realistic distances, angles, occlusion, low light and clutter. Increase input resolution only when it improves accuracy enough to justify the extra latency.
+- Use tracking carefully. Tracking can keep identities and boxes stable between detections, but it must not invent continuing detections when an object is no longer visible.
+- Avoid stale frames. If inference is busy, process the newest available frame rather than allowing a long queue to accumulate.
+- Prevent overlapping requests. Limit concurrent inference, discard obsolete results and cancel work when the feature stops.
+
+The result should be a detector that is both responsive and trustworthy—not merely one that produces a lot of boxes.
+
+# 3. All four features must be fast and accurate
+
+## Live Detection
+
+Highest speed priority
+
+Continuously detect supported objects on fresh camera frames. Draw accurate boxes, show correct labels and update results smoothly. Use local inference when the hardware and model support it. Do not call a cloud language model for every video frame.
+
+Success means: useful live updates, correct labels and boxes, minimal lag, and no stale or fabricated detections.
+
+## Find Object
+
+When the user asks for a bottle, chair, phone or another object, search the actual current camera view for the requested target.
+
+- Return every confidently matched visible instance.
+- Give grounded relative positions such as left, centre or right.
+- Do not confuse a supported object-class search with an unrestricted search for any imaginable object.
+- If the target is not detected, say so honestly.
+- Reuse the loaded detector and recent frames when appropriate, rather than needlessly reinitialising the pipeline.
+
+Success means: the right target, correct location and a quick useful response.
+
+## Read Text
+
+Capture the actual image and run OCR with suitable preprocessing. Preserve reading order, punctuation, numbers and line structure as accurately as possible.
+
+- Avoid unnecessarily sending images through multiple slow processing services.
+- Reuse initialized OCR resources where possible.
+- Return recognised text as soon as it is ready.
+- Speak the actual recognised text without inventing unclear characters.
+- Report blurry or unreadable text instead of pretending it is correct.
+
+Success means: fast, faithful text recognition with speech starting promptly.
+
+## Describe Surroundings
+
+Describe the current camera image using relevant visible objects, their relative positions and useful scene context.
+
+- Prefer a concise, informative first description.
+- Avoid lengthy responses that delay useful information.
+- Reuse the latest valid frame and avoid unnecessary repeated image conversions.
+- Do not invent objects, actions, distances or hazards.
+- Let speech begin as soon as a useful response is available, where supported.
+
+Success means: a quick, natural and grounded spoken description.
+
+# 4. How to achieve the fastest practical response
+
+The important point is that the four features should not all use the same processing strategy.
+
+| Feature               | Performance strategy                                                                                  |
+| --------------------- | ----------------------------------------------------------------------------------------------------- |
+| Live Detection        | Continuous local inference, fresh-frame processing and minimal rendering delay                        |
+| Find Object           | Reuse the loaded detector; perform targeted matching and use a more capable model only when necessary |
+| Read Text             | Efficient image capture, preprocessing and OCR; avoid redundant model calls                           |
+| Describe Surroundings | Efficient image capture, concise vision analysis and early useful speech                              |
+
+Across all four, the system should:
+
+1. Initialise models and services once where possible.
+2. Avoid repeated model downloads, loading or warm-up for every request.
+3. Keep camera capture, inference, UI updates and speech from blocking one another unnecessarily.
+4. Use bounded timeouts, clear errors and cancellation when the user stops or changes features.
+5. Measure actual performance on the user's hardware instead of guessing.
+6. Never sacrifice essential correctness simply to make a result appear faster.
+
+## 5. How to prove the improvements actually work
+
+A successful build alone is not sufficient. Test the application with real camera footage and a labelled set of representative images.
+
+### Live Detection tests
+
+- Object detection precision and recall.
+- Bounding-box overlap against manually labelled ground truth.
+- Missed objects, false positives and duplicate boxes.
+- Update rate and end-to-end frame age.
+- Box alignment after resizing and mirroring.
+- Performance under low light, motion and clutter.
+  ### Other feature tests
+- Find Object: target matching and relative-position correctness.
+- Read Text: character-level accuracy and reading order.
+- Describe Surroundings: factual grounding and response latency.
+- All four: time to first result, time to speech, median latency and 95th-percentile latency.
+
+Measure cold-start and warmed-up performance separately. A system that responds in 200 ms once but takes three seconds on the next request is not reliably fast.
+
+The final requirement, bro: OmniLens must make the correct result available as quickly as practical, consistently, for all four features. Live Detection must be especially responsive, with accurate object labels and boxes that follow the real camera image. The 100% sensitivity default must be preserved, and every speed or accuracy improvement must be verified against actual results.
+
+I haven't run your current application or benchmarked its model, so I can't honestly say which component is currently responsible for the delays or how accurate it is. Those measurements are the next step before claiming the problem is fixed. Bro ❤️🔥 now that I can see your actual OmniLens UI, I understand what you mean! The existing burgundy theme and colourful decorative lines are distinctive, so we'll keep the colours and overall identity exactly as they are.
+
+The biggest improvement I'd make is to the screen layout and how the interface behaves. Those side panels are useful, but they take up space and compete with the main features.
+
+## 1. The biggest UI improvements I'd recommend
+
+[Minimal sidebar navigation for dashboard by Tran Mau Tri Tam ✪ on Dribbble](https://images.openai.com/static-rsc-4/9F-x1z-0k0P0mv7CZVpkwu6QxCLuzt6r6ulrIXTaKepJxd_WGsxGBw-rxgs3SUiPw3nbS1Xf8CsWENIb4Ro_NIPjSnpbpd4Ec-uZoTHDthlKzYXHqhwy7t6hkEw7SChV1rwzzFjOEKD5KhRc8fxYadh-MNvRCEpGaAK6q-tf0Tc?purpose=inline)
+
+1\. Make the left sidebar collapsible
+
+Currently, Home, the four feature links, Settings and Help occupy a permanent strip. Add a collapse button so users can hide the sidebar when they need more room for the camera or results.
+
+- Expanded: icons and labels.
+- Collapsed: icons only, with accessible names and tooltips.
+- On mobile: a slide-out navigation drawer.
+
+[Dual-tier sidebar navigation — Untitled UI | Dashboard design template, User interface design, Ui design dashboard](https://images.openai.com/static-rsc-4/AG91exZhHDQDdcgZd_NDIXha9frU7XKoH2EF3xAyUVVrRN7S6okTQWKkfGHLZeIjobNGndfghCDPwaMN8e7Vfp-0G9CCqVYYqiWqXmXGxi3OhlC6uvByO4OmDd0C-D-Am6CELQswP8c7TYMl_3WpZEaNMR0k8qkH91OOEBdAin0?purpose=inline)
+
+2\. Turn the right sidebar into a toggleable panel
+
+Your Accessibility and System Status panels remain visible and compete for horizontal space.
+
+Keep a small, clear control in the header to open them when needed. On desktop, use a slide-out panel; on mobile, use a full-width drawer.
+
+Keep essential camera and microphone status available even when the full panel is closed.
+
+[Project Management Admin Dashboard 👔📊 by Nexila - UI/UX Design & Development Partner on Dribbble](https://images.openai.com/static-rsc-4/QccpvzZT30rMO6fnPRYGiel9YkegGXRUCrsRum7zXep6rP8-MgS7ILTlIVSQzETH_FhYurokCf2ELEBM6m5uV8PDm-U5OdM1t4NLwzmViO_tu1dMe_8LLECqVDdF-Co66mtVbCFMNn5HDW6uWc-CgATl5F4O59ybbjiNeDxCJ2E?purpose=inline)
+
+3\. Give the main workspace more room
+
+The home heading, voice assistant card and feature cards should use the available width intelligently.
+
+- Keep card dimensions and gaps consistent.
+- Use a responsive four-card grid when space permits.
+- Let cards wrap naturally on smaller screens.
+- Avoid squeezing the main content between two permanently visible sidebars.
+
+[AI Smart Home Assistant with Voice and · Built with Blink](https://images.openai.com/static-rsc-4/0DTF7GXvkrn5JNnvw9_UFmyWTkNaYFXob3tEhr5Lz2qCBf_0CQogr1Eg9tXfDdoxX4_6-9FsB-cYmh671s0p6TmUU9Ks7syrtPdIw6N3-Hmyi7IHCMzVHXIjD47gBhaN9rCLh61tjpNWgal4-FC19cKz5810hEvP_xoaPuH08nk?purpose=inline)
+
+4\. Improve the bottom Voice Assistant Controller
+
+It is a useful part of OmniLens, but its large fixed panel can cover content or occupy too much vertical space.
+
+Make it a compact, persistent controller that can expand when needed. Keep the microphone, listening status, Repeat and Shortcuts easy to access.
+
+Ensure it never covers a focused button, camera control or important result.
+
+## 2. Fix the issues visible in your screenshots
+
+| What I noticed                                                   | Recommended change                                                                                             |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| SafePath appears in the sidebar, feature grid and voice examples | Remove all these references as part of the planned SafePath removal.                                           |
+| The left and right panels take up substantial width              | Make them collapsible or toggleable.                                                                           |
+| The voice controller occupies a large area at the bottom         | Reduce its default height and support expansion.                                                               |
+| Some content sits close to the bottom decorative lines           | Add consistent content padding so the lines never interfere with controls.                                     |
+| The right panel has multiple status rows                         | Use a compact summary, with detailed status available on demand.                                               |
+| The page has a long vertical scroll                              | Reduce unnecessary spacing and make fixed elements behave correctly.                                           |
+| The top preview toolbar occupies a separate strip                | Keep it if required by the preview environment, but ensure the actual app header and content align beneath it. |
+
+## 3. How I'd arrange the screen
+
+Here's the structure I'd aim for without changing the existing colours.
+
+## OmniLens
+
+Understand your world. Through sound.
+
+# Understand your world.
+
+Choose a feature or use voice assistance.
+
+Talk to OmniLens
+
+Ask for help using your voice.
+
+### Explore your surroundings
+
+Describe Surroundings
+
+Hear what's around you.
+
+Find Object
+
+Search for a visible item.
+
+Read Text
+
+Read signs and documents.
+
+Live Detection
+
+Identify supported objects.
+
+Voice Assistant
+
+Microphone status and quick actions
+
+Illustrative layout concept. It demonstrates structure, not a replacement colour scheme or a screenshot of your live application.
+
+## 4. Other important improvements
+
+- Motion: use smooth, short transitions for sidebar drawers, card interactions and expanded panels. Respect reduced-motion settings.
+- Clickables: ensure the whole feature card works if it appears clickable, and prevent nested buttons from triggering the wrong action.
+- Alignment: keep the header, page content, card grid and controller aligned to consistent spacing rules.
+- Responsive behaviour: prevent sidebars and fixed panels from overlapping content on smaller screens.
+- Accessibility: preserve keyboard navigation, screen-reader labels, high-contrast mode and text-size settings.
+- Correct status: make camera and microphone indicators reflect their actual states rather than static labels.
+- Feature navigation: opening a feature should take the user to the correct screen, and returning Home should preserve only the state that is intended to persist.
+
+## My recommendation
+
+Bro, I would make these three changes first:
+
+1. Collapsible left sidebar.
+2. Toggleable right Accessibility/System Status panel.
+3. Compact, expandable bottom Voice Assistant Controller.
+
+These changes will give the main workspace considerably more room while preserving your current colours, decorative lines and branding. Then refine the animations, alignment and click behaviour.
+
+One important detail: because OmniLens is for blind and low-vision users, collapsing a panel should never make an essential action inaccessible. The controls must remain discoverable through voice, keyboard and screen-reader navigation. Bro ❤️🔥 understood! We will keep the existing OmniLens colour scheme completely unchanged and improve everything else about the UI: layout, alignment, static elements, animations, interactions, clickables, and functional correctness.
+
+Here is what I recommend improving.
+
+## 1. Layout and alignment
+
+Consistent spacing and positioning
+
+- Align feature cards, headings, icons and buttons to a consistent grid.
+- Use equal card padding, consistent corner radii and balanced gaps.
+- Fix elements that overlap, drift, or look misaligned at different screen sizes.
+- Keep important actions in predictable positions.
+
+Better visual hierarchy
+
+- Make page titles, section headings, descriptions and actions clearly distinguishable.
+- Keep feature cards visually consistent in size and structure.
+- Remove unnecessary empty space, duplicate information and distracting elements.
+- Make the camera preview prominent without pushing important controls out of view.
+
+## 2. Static UI elements
+
+Static elements are the parts that remain visible when the user is not interacting with the app.
+
+- Header: consistent logo, product name and navigation alignment.
+- Feature cards: consistent icon size, title placement, description length and action placement.
+- Settings: readable labels, properly aligned sliders and controls, and clearly displayed values.
+- Camera preview: a stable aspect ratio that doesn't unexpectedly resize or shift.
+- Results area: enough space for detection labels, recognised text and scene descriptions.
+- Empty states: helpful instructions when the camera has not started or no results are available.
+
+## 3. Motions and animations
+
+Animations should make OmniLens feel responsive, not slow or distracting.
+
+Button interactions
+
+Short, subtle hover, pressed and focus transitions. Buttons should respond immediately to clicks.
+
+Card interactions
+
+Subtle elevation or movement on hover, without making the layout jump or shift.
+
+Loading and processing
+
+Lightweight loading indicators with clear status text. Stop the animation as soon as processing finishes or is cancelled.
+
+Live detection
+
+Update bounding boxes smoothly using fresh detections. Avoid flashy scanning animations, delayed box transitions or animations that make objects appear in the wrong position.
+
+Accessible motion
+
+Respect the operating system's reduced-motion preference. Never make animations the only way to communicate status.
+
+## 4. Clickables and interaction correctness
+
+This is one of the most important improvements. Every visible interactive element must perform its advertised action.
+
+| Element                        | Expected behaviour                                                               |
+| ------------------------------ | -------------------------------------------------------------------------------- |
+| Feature card                   | Opens the correct feature when the card itself is intended to be clickable       |
+| Start camera                   | Requests permission and starts the camera                                        |
+| Stop camera                    | Stops the camera and releases its media tracks                                   |
+| Microphone button              | Starts or stops voice input and visibly indicates listening state                |
+| Find Object                    | Accepts the target and searches actual camera frames                             |
+| Read Text                      | Runs OCR on the captured image and displays or speaks the actual recognised text |
+| Describe Surroundings          | Analyses the current image and provides a grounded description                   |
+| Stop Speech                    | Immediately stops current speech playback                                        |
+| Repeat Speech                  | Repeats the latest available result                                              |
+| Sensitivity slider             | Updates the actual detector configuration, not just the displayed number         |
+| Flip Photo / Invert Directions | Applies the intended setting independently                                       |
+| Navigation links               | Open the correct page and show which section is active                           |
+| Retry button                   | Retries the failed operation instead of merely dismissing the error              |
+
+Also fix accidental double-clicks, dead buttons, nested clickable conflicts, controls that look enabled when unavailable, and controls that trigger the wrong action.
+
+## 5. Correctness of the four feature interfaces
+
+Live Detection
+
+- Bounding boxes must align with the correct objects.
+- Labels must follow the correct detections as objects move.
+- The Stop control must halt capture and processing.
+- Never show fabricated detections or stale results as live.
+
+Find Object
+
+- The requested object must be passed to the actual search operation.
+- Results must describe the correct relative position.
+- An unsuccessful search must not claim the object is absent from the entire room.
+
+Read Text
+
+- Display and speech must correspond to the actual OCR result.
+- Preserve the reading order and avoid inventing uncertain characters.
+- Clearly communicate when text cannot be recognised.
+
+Describe Surroundings
+
+- Show the result of the current image analysis.
+- Avoid presenting old descriptions as current.
+- Keep speech, loading indicators and Stop controls coordinated.
+
+## 6. Responsive design and accessibility
+
+The UI should work correctly on desktop, laptop, tablet and mobile without changing the existing colour scheme.
+
+- Prevent horizontal scrolling and clipped content.
+- Make cards stack naturally on narrow screens.
+- Keep touch targets large and sufficiently separated.
+- Support keyboard navigation, visible focus and screen readers.
+- Use meaningful accessible names for icon-only buttons.
+- Ensure dialogs, menus and tooltips open and close correctly.
+- Keep text readable when zoomed in.
+- Make status changes accessible to assistive technology.
+
+## 7. Functional states and edge cases
+
+The UI must correctly handle camera permission denial, unavailable cameras, network failures, empty results, slow processing and repeated clicks.
+
+For example, if the user stops Live Detection while a request is still running, the interface must not suddenly return to an active state when that old request completes. Camera, speech, timers and pending operations must be coordinated properly.
+
+SafePath should also be removed from the interface and navigation, while shared components used by the remaining four features are preserved.
+
+## 8. Final UI audit
+
+These are the checks I would use before considering the UI improvements complete.
+
+## UI quality checklist
+
+0 of 8
+
+Layout and alignment
+
+Consistent spacing, card dimensions, typography, and no overlaps.
+
+Static elements
+
+Header, navigation, camera preview, settings, and results are positioned correctly.
+
+Motion
+
+Smooth, lightweight animations; reduced-motion support; no distracting transitions.
+
+Clickables
+
+Every button, link, slider, toggle, card, and menu works correctly.
+
+Feature correctness
+
+All four interfaces display truthful, current results and handle errors.
+
+Camera and speech lifecycle
+
+Stop, retry, navigation, and reopening do not leave stale operations running.
+
+Responsive accessibility
+
+Desktop/mobile layouts, keyboard controls, contrast, screen readers, and zoom.
+
+SafePath removal
+
+No obsolete feature entry, navigation link, or leftover UI control.
+
+My recommendation, bro: keep the existing colours and focus on visual consistency, precise alignment, purposeful motion, functional clickables, truthful feature states and accessibility. These changes will make OmniLens feel polished and reliable without losing its current identity.
+
+One important distinction: these are the improvements to make and verify—not claims that I've already changed or tested your repository.

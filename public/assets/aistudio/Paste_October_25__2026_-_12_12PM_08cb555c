@@ -1,0 +1,468 @@
+Bro ❤️🔥 for OmniLens, Live Detection must be the most carefully optimised feature because the user depends on the camera to understand the real world. It should not merely draw boxes around things; it must identify the right objects, locate them correctly, update them as they move, and communicate results without misleading the user.
+
+Here is the exact accuracy standard I would set.
+
+# 1. Live Detection camera — the highest accuracy standard
+
+[物体検出をAIで実施する際の導入手段まとめ | Hakky Handbook](https://images.openai.com/static-rsc-4/t0Xjt2UtCN3qk0FvQ0Nm1NcrkyRXCpsTw2xGbJk2fnxRANwMouicvFIgNhW74F8AMJUkluL9yVDk2Zp-g8PYmvKMVdHaJi4_Dvr60yLJj4EUyoRF3Z2L2hL-plgU07PUSGk7_RqhLcpRxpmi9-c1X4pwzUX9pNlbWq2q3ertBvc?purpose=inline)
+
+Correct object identification
+
+The label must match the actual visible object. A water bottle should not be labelled as a cup, a phone as a remote, or a chair as a table. Similar-looking objects must be distinguished as well as the model's capabilities allow.
+
+[YOLOX PRO - Computer Vision Dashboard Course](https://images.openai.com/static-rsc-4/5CH5sGfF0nGRwtyxPZVxyXZKxOha2zBgoSAdM7aox3lhCDVPYDEq6Cs8Wtf5vitLwWI6QmL29lfRtGw99SXaXPG7gT3y_i80FtX56NpjzUv0qbScm4BIlYy3Lfor-2vsTqfJF4mM8dQNwVDSNUypyIzqV1-bsiaJQE9pEyZxRsA?purpose=inline)
+
+Precisely aligned bounding boxes
+
+Each box should fit the object's visible extent as closely as practical. It must not cut off the object, surround unrelated objects, drift away from it, or remain misplaced after resizing or mirroring the camera preview.
+
+[GitHub - UBCSmartCity/QueueDetection · GitHub](https://images.openai.com/static-rsc-4/rz6prcMokyr6akrUN_ND-In_uxd74i6WIWL_5ULFN8W2jtg2F8bW4tGVeTvmZfdT-Y83wubeg5U4yjKKkRXhwXmye6QHhoY9vfM3fvd-TzBs3Fz4GeGXSGtpLSGuf4L-5qitRn1ABNpIDPhy9-MaAGRSIjrgC3msYGrKkc7oC5M?purpose=inline)
+
+Detect all distinguishable objects
+
+If several supported objects are visible, the detector should find each one when the image provides enough evidence. It must not repeatedly detect one object as several objects or merge separate nearby objects unnecessarily.
+
+[Create ai object detection and tracking system using computer vision by Dammoteck | Fiverr](https://images.openai.com/static-rsc-4/1-toYPqzGilm1XEOMhPJ9rCs5pJEnbAi-aWJEiUnWQbETwIg25GDj-kXaK4D03E26bW8M1xlf7yyZBv64WnuSV7Z5bZP9461WMu6ADy4GdSL3cj2SMCVmtP1ivWWi72wHgHwzBxlZ-suU6cqlHqlTM8v5QM56d9fKdwIpcmhtEk?purpose=inline)
+
+Follow objects in real time
+
+Boxes and labels should follow actual movement with minimal lag. They should not flicker excessively, jump to another object, freeze on an old position, or continue showing an object after it disappears.
+
+# 2. How every frame should be processed correctly
+
+The Live Detection pipeline must follow these rules:
+
+1. Capture a fresh frame. Every detection must correspond to a real frame from the active camera.
+2. Prepare the image correctly. Resize or pad it as needed without losing the coordinate transformations.
+3. Run the appropriate detector. Use a suitable trained model for the objects it supports, with the model already loaded whenever possible.
+4. Validate predictions. Check class labels, confidence, box dimensions and duplicate detections.
+5. Map coordinates correctly. Convert the predicted box back to the exact camera preview coordinates, accounting for cropping, scaling, padding and mirroring.
+6. Render the result promptly. Display the latest valid detections without waiting for obsolete frames.
+7. Remove stale results. When an object disappears or the camera stops, its old detection must not remain presented as current.
+
+A correct model prediction with an incorrectly drawn box is still a failure. Both the AI result and the displayed result must be correct.
+
+# 3. Accuracy in difficult real-world conditions
+
+The camera must be tested beyond easy examples.
+
+| Situation                | Expected behaviour                                                                           |
+| ------------------------ | -------------------------------------------------------------------------------------------- |
+| Bright, clear lighting   | Identify supported objects and draw accurate boxes.                                          |
+| Low light                | Detect what remains distinguishable; acknowledge uncertainty when needed.                    |
+| Motion or camera shake   | Minimise lag and avoid attaching boxes to the wrong objects.                                 |
+| Small or distant objects | Detect them when image resolution and model capability permit; don't invent detections.      |
+| Partially hidden objects | Detect visible evidence where reliable; avoid claiming certainty about an obscured identity. |
+| Overlapping objects      | Keep separate boxes where the objects can be distinguished.                                  |
+| Cluttered backgrounds    | Minimise false positives and missed objects.                                                 |
+| Mirrored camera preview  | Keep labels and boxes aligned with the displayed image.                                      |
+| Object leaves the frame  | Remove its detection promptly.                                                               |
+| Unsupported object class | Report the limitation rather than substitute an unrelated label.                             |
+
+# 4. Maximum sensitivity must not mean maximum mistakes
+
+Your detection sensitivity must remain at 100% by default, including when the feature is reopened or the page is refreshed.
+
+But sensitivity and accuracy are different:
+
+- Sensitivity/recall: how many real objects the detector successfully finds.
+- Precision: how many of its reported detections are actually correct.
+
+Lowering the confidence threshold may find more objects, but it can also produce false detections. The threshold and duplicate-suppression settings must be calibrated against labelled camera images so the system achieves the best practical balance.
+
+A model's confidence score is not a guarantee that the label is correct. The UI should not present a questionable prediction as certain merely because the score is high.
+
+# 5. Live Detection must be fast and accurate
+
+My proposed engineering targets for suitable hardware are:
+
+Detection updates
+
+Aim for 15–30 fresh detection updates per second where hardware permits.
+
+Low frame age
+
+Avoid processing backlogs; show the latest useful result rather than an old frame's result.
+
+Measured accuracy
+
+Evaluate precision, recall and bounding-box overlap on real, labelled test data.
+
+No fabricated results
+
+Every visible label and box must be grounded in the corresponding camera frame.
+
+The detector should use bounded processing, avoid overlapping inference requests, and reuse the loaded model. Tracking can improve continuity, but it must never keep an absent object looking like a confirmed detection.
+
+# 6. How we prove that detection is genuinely accurate
+
+Don't judge accuracy only by watching a few successful examples.
+
+- Compare predicted labels against manually verified ground-truth labels.
+- Measure precision and recall for each important object class.
+- Compare predicted and ground-truth boxes using intersection over union (IoU).
+- Count false positives, missed objects, duplicates and incorrect labels.
+- Test mirrored previews, different resolutions, movement, clutter and poor lighting.
+- Measure actual frame rate, result latency and frame age.
+- Repeat tests after changes to the model, thresholds, preprocessing or coordinate mapping.
+
+There is no honest way to promise perfect detection for every object in every scene. We can, however, establish measurable acceptance criteria and keep improving until the results meet them.
+
+## The final requirement for OmniLens
+
+Bro, Live Detection must be treated as a real-time visual perception system, not just a camera with labels. It must identify the correct supported objects, draw precise boxes around them, detect multiple instances, follow movement, eliminate stale results, handle uncertainty honestly and respond as quickly as the hardware allows.
+
+The same principle applies to Find Object, Read Text and Describe Surroundings: fast results are useful only when they are grounded in what the camera actually sees.
+
+I haven't benchmarked your current detector or inspected its live output in this turn, so I can't claim it already meets this standard. The next step is to evaluate its real predictions and box coordinates to identify exactly where accuracy is being lost.Bro ❤️🔥 exactly! All four OmniLens features must understand the actual visuals correctly and accurately—not just respond quickly. Speed must never come at the cost of reliable results.
+
+Here is the standard we should establish for the entire system.
+
+## Accuracy requirements for all four features
+
+[Deep learning based object detection and surrounding environment description for visually impaired people - PMC](https://images.openai.com/static-rsc-4/LABfY3e8PgckJcyQ9LUM4a8cjPeK2fEFamnVOaou--VfFPmcMVX_z1Zs_GZ-5TrcYsRTYuJKe9rDuMIUfsmE_WZezQvRmcCd-fXcRNZDL9-OOOB11SfB8HfdROxzKMBpusZnDQCuZsD1ndHGxd63KOH4EKoLF-n0iv3T5fFMCnk?purpose=inline)
+
+1\. Live Detection — precise object recognition
+
+- Identify the correct visible object and class.
+- Draw tightly aligned bounding boxes around individual objects.
+- Detect multiple instances without duplicate boxes.
+- Follow movement without lag, flickering or incorrect labels.
+- Remove stale detections when objects disappear.
+
+[Gain Object Detection on Mobile Devices Using TensorFlow in a Browser - Hackster.io](https://images.openai.com/static-rsc-4/B2PRPTMW9ylD3k8S1Y0FsJWmlEN3NSbYuWlkzvloJIU6jfAkQAOvaoqKPPbsJGbKS1NdQ3QjlHb_bkyb7zSr_crrgf3LUV_tApeI1nq89nmuehoDxejp7c0gxei4UWuQ6iGiM__mM6rSWAmy4kmo0RQUN2yQvdgmZo92guProkg?purpose=inline)
+
+2\. Find Object — accurate target matching
+
+- Find the exact object the user requests.
+- Identify all distinguishable matching instances.
+- Report correct left, centre or right positions.
+- Never substitute a different object or invent a match.
+- Clearly communicate when the target cannot be identified.
+
+[Handle processing response  |  Document AI  |  Google Cloud Documentation](https://images.openai.com/static-rsc-4/iNgNzub14s_rcpmj306e5LvIBEjYnrecjMNQyErGFJfdLHhg_FNZ6XvMWInPJh1Z40oEqBc2zEZx5i8wOGWnFIAHK-01im_T7-dYOYC1RHNTTRURBPPkYkTIuiMvCgMaxZDjgUS_f3xHphnsa84jf7AmD0U2P-Wzcd3sed3j57U?purpose=inline)
+
+3\. Read Text — faithful visual transcription
+
+- Recognise actual characters, numbers, punctuation and words.
+- Preserve the correct reading order and text layout.
+- Handle different text sizes, angles and lighting.
+- Never silently guess unclear characters.
+- Ensure spoken output matches the recognised text.
+
+[1312 Pegan Common, Livermore, CA 94550 | - f8® Real Estate Media](https://images.openai.com/static-rsc-4/Z4I7c6Xed8q3D43ONOjLHlSjRe82GyQq3OsMMzAPyF2KyTvBuFAwnl8qKuR_9SYqNNzo7Yqm4Sv9Hafa3HqRbCDinIowz6x-KRh9Z4qHZMV4abAHozEQsh0BrNLp1pGJK8N2bcTdYb9W4ldkIwwL9zBDiFUBVZDhD7dVpXYhZxU?purpose=inline)
+
+4\. Describe Surroundings — accurate scene understanding
+
+- Describe objects that are actually visible.
+- Explain useful spatial relationships correctly.
+- Distinguish visible facts from uncertain interpretations.
+- Avoid inventing actions, distances or environmental details.
+- Provide concise descriptions that are useful when spoken aloud.
+
+## What must be common across all four features?
+
+1. Use real visual evidence. Every result must come from the actual camera frame or image being analysed.
+2. Use appropriate AI models. The detector, target-search system, OCR engine and scene-description model must each be suitable for their task.
+3. Preserve image correctness. Cropping, resizing, preprocessing and mirroring must not corrupt detection coordinates or interpretation.
+4. Handle uncertainty honestly. Blurry, obscured, ambiguous or unsupported visuals must not produce confidently fabricated answers.
+5. Prioritise accuracy and speed together. Reuse models, avoid unnecessary processing and return fresh results promptly without skipping essential validation.
+6. Verify performance objectively. Test real images and camera footage, measure recognition errors and latency, and fix failures before claiming improvements.
+
+Your 100% detection-sensitivity default must remain intact. However, maximum sensitivity does not guarantee maximum accuracy; thresholds must be calibrated to reduce missed objects without flooding the screen with false detections.
+
+The acceptance goal is maximum practical visual accuracy across all four features, with measurable improvements and no knowingly fabricated results. No system can guarantee perfect recognition in every possible scene, so OmniLens must also recognise when it cannot reliably identify something.
+
+Bro, this should be a core requirement for OmniLens as a whole—not a Live Detection-only improvement.Bro ❤️🔥 absolutely! OpenCV 5 must be correctly integrated into OmniLens and genuinely used—not just installed, mentioned in `requirements.txt`, or displayed as a version number in the UI.
+
+This requirement applies alongside accurate visual recognition across all four features.
+
+## What must be verified
+
+1\. Verify the actual OpenCV 5 installation
+
+Confirm the installed OpenCV package, runtime version, Python environment and imported `cv2` module. Check for conflicting OpenCV packages and ensure the application is using the intended installation.
+
+2\. Use OpenCV on real camera frames
+
+OpenCV must actually process image data in the running application. Verify the live camera pipeline frame by frame—not just a separate demo endpoint or a single uploaded image.
+
+3\. Apply appropriate image processing
+
+Use relevant OpenCV operations for resizing, colour conversion, contrast enhancement and image-quality checks when they improve the result. Avoid unnecessary processing that increases latency or damages useful visual details.
+
+4\. Integrate it with all four features
+
+- Live Detection: preprocess actual frames before the detector where appropriate, while preserving correct bounding-box coordinates.
+- Find Object: prepare the actual search frame without changing the target's identity or position.
+- Read Text: improve text visibility where beneficial before OCR.
+- Describe Surroundings: prepare the image appropriately without removing important scene details.
+
+5\. Prove that it improves the application
+
+Measure preprocessing time, inference time, total latency and visual accuracy. Compare results with and without optional preprocessing on representative images.
+
+## One important technical distinction
+
+OpenCV 5 is an image-processing and computer-vision library; it is not, by itself, the AI model that recognises every object. OmniLens still needs suitable detection, OCR and vision-understanding models.
+
+OpenCV should support those models by preparing and transforming visual input correctly. It must not introduce incorrect colours, distorted proportions, misplaced boxes or unnecessary delays.
+
+Also, verify the actual installed version rather than assuming that a dependency declaration proves OpenCV 5 is running. In particular, check compatibility between the installed package, Python environment, imported module and the application's runtime.
+
+## How to verify the complete integration
+
+| Verification          | What must be demonstrated                                                        |
+| --------------------- | -------------------------------------------------------------------------------- |
+| Installation          | The intended OpenCV 5 package and runtime are actually installed.                |
+| Live camera           | Real frames pass through the OpenCV pipeline.                                    |
+| Image processing      | The operations claimed by the application are actually executed.                 |
+| Detection coordinates | Bounding boxes remain correct after image transformations.                       |
+| OCR and descriptions  | Preprocessing does not corrupt the visual information those features need.       |
+| Performance           | OpenCV does not introduce unnecessary latency.                                   |
+| Testing               | Logs, tests or instrumentation prove which frames and operations were processed. |
+| Honest status         | The UI reports the real runtime state, not a hardcoded success message.          |
+
+Bro, the final requirement is accurate visual understanding + fast processing + genuine OpenCV 5 integration across OmniLens. We must verify these in the actual running code before claiming that OpenCV 5 is correctly implemented.
+
+I haven't inspected or executed your current repository in this turn, so I can't yet confirm that its runtime is genuinely using OpenCV 5.Bro ❤️🔥 YES! We need to make every visible item detected as accurately as technically possible across all four OmniLens features, not just make the app look fast or show bounding boxes.
+
+The important requirement is that OmniLens must recognise the actual items in the camera view, correctly identify them, and give the user reliable information about them.
+
+## Requirements for all four features
+
+[WildDet3D: Scaling Promptable 3D Detection in the Wild](https://images.openai.com/static-rsc-4/ZVR_RhxgXB12_w9Uk9HADapyVA1tC3dWyZH_Og5ExdeKH73qv-QraxcoxvbVSNGlxsqwzl4HZ9vOhCjNrbRiPMTJB21VtDdlqy2AYSyfwlM2ksb4geeSBfut-PV3RCrW_74bkrq0iuY_rT48kMoyxCBuIL5xsnzmmBsms-7m-F0?purpose=inline)
+
+1\. Live Detection
+
+- Detect every distinguishable, supported object that the model can reliably recognise.
+- Display the correct label and tightly aligned bounding box for each object.
+- Detect multiple instances without duplicate boxes.
+- Keep boxes aligned as objects move, and remove stale detections when objects disappear.
+- Avoid missing small, distant, partially occluded or overlapping objects wherever the model and image quality permit.
+
+[实时目标检测 · Q300 Tutorial](https://images.openai.com/static-rsc-4/B05bdKbHwx7bPia6Xf4_SsPTLLXAfWB-RGxCz1a1X15RWTQn4F8zLFWBWbIuo2HD1ytYX4RqSMQ8Vw7WyCyj2g6YmGmRZKSIMq6pm-mB6SzsYNTmIUhRTPMgXnC__prmu_Qr3VszBpY6fO-AJGbON9rb8PwwnAEfDcQ3qf1GCeE?purpose=inline)
+
+2\. Find Object
+
+- Find the exact object requested by voice or text.
+- Identify every confidently matched visible instance, not just the first.
+- Give the correct relative position based on the actual camera frame.
+- Never report a match that the image does not support.
+
+[A large fragment of an old paper table with numerical data, illustrated by columns and a series of numbers, used for analysis](https://images.openai.com/static-rsc-4/GeR7_ea7BaCqYtIo9VnVZz-KEQX79CtjAfC0S4iblBF87mbfNnvWtCHbuaYmgA0iV5fznTzFwohfiJTXyEOqMGwZuGZ-XPozE4zyuVIst86fkJwJWbEXe_w3Z6XQaH_QBGOdvZM29eEBXmYE5fPysDcvC3QW_LdLlo1w4fnAY1sIZ-Fdl5dE9CiyiMm-E9Rc?purpose=inline)
+
+3\. Read Text
+
+- Recognise the actual visible text, including letters, numbers, punctuation and symbols.
+- Preserve reading order and speak the same text that was recognised.
+- Avoid inventing characters when text is blurry, obscured or unreadable.
+
+[Cozy Home Office Setup for Studying | Workspace Inspiration | AI Art Generator | Easy-Peasy.AI](https://images.openai.com/static-rsc-4/MUgwqUveEhTQBtX_mdHsfSK2Zrqy_yygu3ko-Ca6tznOol7x39dPzSpdmsQRCtVqnjrps1-HFK8HYgFhOkwdV0_OSLZun0A-QGE0GoSU7QUOiVUC4rp7nId89cqGryj2rwf82Co0-CzTSxJIlrmQ4ZMAY5feME9C4NpnpCGXZcY?purpose=inline)
+
+4\. Describe Surroundings
+
+- Describe the relevant visible objects and their spatial relationships.
+- Include important details without inventing objects, actions or distances.
+- Ensure the spoken description reflects the current camera view.
+
+## Bro, these technical requirements are essential too
+
+- OpenCV 5: Verify that the actual installed version is running and that real camera frames pass through the intended image-processing pipeline.
+- Detection model: Use an appropriate model for the required object categories. A standard YOLO model cannot recognise every conceivable object, so use open-vocabulary recognition where appropriate if the project supports it.
+- Maximum sensitivity: Keep the sensitivity setting at 100% by default, including after refresh and reopening the feature. This means maximum practical sensitivity, not guaranteed perfect accuracy.
+- Speed: Optimise all four features for minimal latency without sacrificing correctness.
+- Honest results: Never substitute mock detections, fabricated descriptions, guessed OCR text or stale frames for real results.
+- Testing: Evaluate each feature using labelled test images and videos, including clutter, different lighting, movement, small objects, overlapping items and mirrored camera previews. Measure missed objects, false detections, classification accuracy and bounding-box alignment.
+
+One important limitation: no vision system can guarantee that it will detect every item in every situation. The goal is maximum measurable accuracy, with uncertainty reported honestly when an item cannot be recognised reliably.
+
+The final acceptance criterion for OmniLens should be: all four features use genuine visual evidence, correctly identify everything within their capabilities, and never claim more than the camera and models can establish.Bro ❤️🔥 For OmniLens, we need to define exactly how accurate each of the four features must be, including what counts as a correct detection, what errors are unacceptable, how fast results should appear, and how to test whether the system is genuinely working.
+
+The goal is maximum practical accuracy across all four features, with particular attention to Live Detection. Since OmniLens is an accessibility application for blind and low-vision users, incorrect spoken information can be just as problematic as a missed detection.
+
+# OmniLens: Detailed accuracy requirements for all four features
+
+## 1. Live Detection — continuous, frame-by-frame object recognition
+
+[Color Detection Using Python and OpenCV | by Agneya Pathare | Medium](https://images.openai.com/static-rsc-4/or9XsDDQmtZ94I56nedAlpRkdR_6OO3UULuBNqYvUKN3jLL5BdTjq_6BD0IbaabKDskzM7ZNzcbNTd5axxrPRyhix63bnnN0q8BO0B-xGzLXH8YxcL8Wp8Rw1duZNs0X9vCQ2LC5do-Ab90-zTEPdxy9UQinruc5LqWqZ2A61eU?purpose=inline)
+
+[WildDet3D: Scaling Promptable 3D Detection in the Wild](https://images.openai.com/static-rsc-4/ZVR_RhxgXB12_w9Uk9HADapyVA1tC3dWyZH_Og5ExdeKH73qv-QraxcoxvbVSNGlxsqwzl4HZ9vOhCjNrbRiPMTJB21VtDdlqy2AYSyfwlM2ksb4geeSBfut-PV3RCrW_74bkrq0iuY_rT48kMoyxCBuIL5xsnzmmBsms-7m-F0?purpose=inline)
+
+[Voice-Controlled Collaborative Cooking System | Hang Yin](https://images.openai.com/static-rsc-4/PGBvtc6RN7q4SAgKT-PvP1RoJ26uVfWolXryRNSBgsmvqYhVf_hdeLSGAPA_0y3EOGku9BGgA_gXejuG7q9tWudTx-VSuWCuzxmvUQATVaSLnDfNkXc4822S2ZCIGMee7sPDApu1E1yAKQ8mfdKzzTFZdkQhcxAKqWOSYU4DEb4?purpose=inline)
+
+10
+
+Goal: Every visible object that falls within the model's supported categories should be detected as reliably as possible, with the correct identity and location.
+
+### What accuracy should mean
+
+- Correct object classification: A bottle must be labelled as a bottle, a chair as a chair, and a phone as a phone. Do not confuse visually similar objects when the image does not support that classification.
+- High object coverage: Detect multiple different objects and multiple instances of the same object. If three bottles are visible and distinguishable, the system should attempt to detect all three, not just one.
+- Correct bounding boxes: Each box should tightly enclose its corresponding object, without shifting, stretching, or enclosing a neighbouring object.
+- Small-object detection: Make a serious effort to detect small objects, distant objects and objects near the edges of the frame. Test these separately because they are often harder to recognise.
+- Overlapping objects: Detect objects that partially overlap when enough visual evidence remains to identify them.
+- Stable tracking: Boxes should follow moving objects smoothly. They must not jump randomly, remain on objects that have disappeared, or flicker unnecessarily.
+- Fresh results: Boxes must represent the latest camera frame, not an old frame returned after a slow inference request.
+- Honest uncertainty: If an object cannot be recognised reliably, the system should lower its confidence or report an uncertain/unknown object rather than inventing a label.
+
+### Recommended measurable targets
+
+These are proposed engineering targets, not existing OmniLens results or guarantees.
+
+| Metric               | Suggested target                                                                         |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| Precision            | At least 95% on a representative, labelled test set                                      |
+| Recall               | At least 90% overall, with a separate goal of 95% for supported, clearly visible objects |
+| Bounding-box quality | mAP\@50:95 measured; aim for at least 0.50 on the defined evaluation set                 |
+| Processing speed     | Aim for 15–30 FPS on supported hardware                                                  |
+| Stale detections     | Remove promptly after the object is no longer detected; measure persistence              |
+
+Precision measures how often detections are correct. Recall measures how many actual supported objects are found. Both are necessary: a model that detects very little may have high precision but poor recall.
+
+Important: These targets should be evaluated on a representative dataset with a fixed definition of an object and a documented matching threshold. A result from one easy image is not enough.
+
+## 2. Find Object — accurate target search
+
+[Object detection and scale - Python Help - Discussions on Python.org](https://images.openai.com/static-rsc-4/si_4klzdmn-rtcpKDLyNpctQ6nQKxamXi9fF3RMnTy8h9aAK-Oa5JcQXWCJWsFJcvQObuulwaRNAwtnNX59WFQb_OJK173ImoDWxWd1kcwydgZyF5p1PyNdCPFCq4AS5qm8OxHN4y53J-ozRzSpT-_sjeuI3pVwkZlzcUIxC_xo?purpose=inline)
+
+[Method teaches generative AI models to locate personalized objects | MIT News | Massachusetts Institute of Technology](https://images.openai.com/static-rsc-4/dvCfMgigjp-KCTyTS-55Pnv7F8-bYQcXCeRFagANq2fURCkBd4nUbg6MnKG_ZzZqhPsonDHY0krKMpZKp_hNaggxg_nbVz-iTraZSh16Ar1xLSfcoEA5-nraKQyfgniCrzj5FAFc8w-b3Py05hcveX_KuBuECKMl0nVPPrTIrfY?purpose=inline)
+
+[WildDet3D: Scaling Promptable 3D Detection in the Wild](https://images.openai.com/static-rsc-4/ZVR_RhxgXB12_w9Uk9HADapyVA1tC3dWyZH_Og5ExdeKH73qv-QraxcoxvbVSNGlxsqwzl4HZ9vOhCjNrbRiPMTJB21VtDdlqy2AYSyfwlM2ksb4geeSBfut-PV3RCrW_74bkrq0iuY_rT48kMoyxCBuIL5xsnzmmBsms-7m-F0?purpose=inline)
+
+10
+
+Goal: When the user asks for an object, OmniLens must locate the requested object in the actual camera view, identify all confidently matching instances, and communicate their positions correctly.
+
+### What accuracy should mean
+
+- Understand the requested target: Correctly interpret the user's spoken or typed request, including reasonable synonyms where supported.
+- Find the right category or instance: If the user asks for a cup, do not identify a bowl as a cup. If several cups are visible, report the multiple matches rather than silently selecting the wrong one.
+- Locate the object correctly: Use the actual bounding box and camera geometry to determine whether the object is on the left, right or centre of the image.
+- Use consistent position descriptions: Say “on your left in the camera view” or use another clearly defined convention. Do not confuse image position with a person's physical left/right without accounting for camera orientation.
+- Handle missing targets honestly: Say “I couldn't detect a cup in the current view” rather than claiming that no cup exists anywhere in the room.
+- Handle unsupported targets: If the standard detector does not recognise a requested category, use a suitable open-vocabulary model if integrated, or explain the limitation.
+- Avoid stale matches: When the user moves the camera, update the target location using fresh frames.
+- Avoid false matches: Do not announce a target just because a visually similar object is present.
+
+### Recommended measurable targets
+
+| Metric                        | Suggested target                                                            |
+| ----------------------------- | --------------------------------------------------------------------------- |
+| Correct target identification | At least 95% precision on supported target categories                       |
+| Target recall                 | At least 90% for clearly visible supported targets                          |
+| Position correctness          | At least 95% correct left/centre/right classification on the evaluation set |
+| Response time                 | Aim for a first useful result within 0.5–1 second on supported hardware     |
+| Unsupported or absent targets | Correctly communicate uncertainty or non-detection; never fabricate a match |
+
+Measure these separately for common targets, small objects, cluttered scenes, partial occlusion and objects close to the image edges. The system must not claim that it can find every imaginable object unless its recognition model actually supports those objects.
+
+## 3. Read Text — faithful OCR and spoken output
+
+[Extract the Drug Names and Uses from the Tablet Image using Spatial Information | by Sukesh | Medium](https://images.openai.com/static-rsc-4/nV6v0jMt77nANvwG6zbqE4njD8syxTZgr7qtKRC1Z_wasuHNTIc6quL8_GgedUe8kOdVGvEP0uH08p7IwRyeeTveqTwVOaD7pifTqFnT86b4rcUmaB3JZ0jzNT-CoOyYcfPssTGUllq0iu-AFkrTqBPcKneRfgnken80LFLJhBw?purpose=inline)
+
+[Segment and Read Text in Image - MATLAB & Simulink](https://images.openai.com/static-rsc-4/DY9T7q7BUyXWMQS3YGAOjdhfDfwpwsvdDqpv3MPM7e3Z64vtrGqS69l6CZXv9RCgO4IA4MbP5Gcy3RLNzs4Q4jyRgGr8a-mecquR04ZXCKOsOECh6pAKcCgM-E0EtlygAD-FQmVRiO_8kQg2GOKbtlF0HSf4eMZliFumYQEPWjs?purpose=inline)
+
+[Automatic Extraction of Medication Information from Cylindrically Distorted Pill Bottle Labels | MDPI](https://images.openai.com/static-rsc-4/v3TwzGl_NYKgtVKwDnZFU_MFOH19Hemqm76yQOMrONgLWerjg0nxdYY_oOitOnAybnlZxC-On05_53eSHsJd6px1vINoMhqXtVsStuz1_pqABaNZcXtidohYfS5_pN7zPuhGY1RD1-_9VvyTcfABdq8RP0-Iu0-mTIBvvmfaN3E?purpose=inline)
+
+10
+
+Goal: Read the text actually visible in the image, preserve its meaning and ordering, and speak only what the OCR system has genuinely recognised.
+
+### What accuracy should mean
+
+- Character accuracy: Correctly recognise individual letters, numbers and symbols.
+- Exact words: Avoid substitutions such as reading `18` as `16`, or changing a name or product label.
+- Punctuation and formatting: Preserve punctuation and useful line breaks. Maintain reading order for paragraphs, lists, columns and tables where supported.
+- Small and difficult text: Test small fonts, low contrast, glare, curved packaging, angled pages, blur and partially obstructed text.
+- Multiple text regions: Detect and read separate visible text regions in a sensible order without accidentally merging unrelated lines.
+- Faithful speech: The spoken result must match the recognised text. The language model or text-to-speech component must not silently rewrite, complete or correct uncertain words.
+- No guessing: If a character is unclear, report the uncertainty or ask the user to reposition the camera. Never invent a missing digit.
+- Useful image enhancement: Use OpenCV 5 preprocessing, such as contrast enhancement or deskewing, only when it improves recognition. Keep the original image available because preprocessing can sometimes destroy text details.
+
+### Recommended measurable targets
+
+| Metric                     | Suggested target                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------------- |
+| Character error rate (CER) | At most 2% on clear, supported printed text                                                       |
+| Word error rate (WER)      | At most 5% on clear, supported printed text                                                       |
+| Reading-order accuracy     | At least 95% on a defined set of layouts                                                          |
+| Spoken-text fidelity       | No differences from the selected OCR output, except explicitly disclosed formatting normalisation |
+| Response time              | Aim for a first readable result within 0.5–1.5 seconds for ordinary short text                    |
+
+CER and WER must be measured against ground-truth transcripts. Targets for clear printed text should not be presented as expected performance on handwriting, tiny text or severely blurred images; those require separate evaluations.
+
+For important information such as medication labels, addresses, account numbers and dates, the app should be particularly cautious about uncertain characters.
+
+## 4. Describe Surroundings — accurate scene understanding
+
+[Reading Room: Anne Helen Petersen’s top Substack reads](https://images.openai.com/static-rsc-4/sISiFaeOrNHhYJsud82H_Jc6Bb3uhqpO7HTvsEM0p2ij-Ok35SkuLa8yGlRM_w8h-OKSs3Tz4iRlDbVv_Kfnaa-1xQZj_GZcueJ1F-Mf1sGTfsINASUYeY7bs-xXyhfs72y7fx7NiMMZ-p0d73YMZCrjpwH_VOC9FZrRWh6j-SI?purpose=inline)
+
+[עבור לדף המבוקש](https://images.openai.com/static-rsc-4/QQhHH67J_2ubqlV65KUztAQyXRQTMI-r8NPWucZmk95lEequcDMCHHuTUdEZjnjHaUxUsMn7Pevo7r74omK2sDY5dKoYp1z4-1jy6Lcold00o8GvyL5BkLj7UIoVQOcMH8LQnDy8EGXkqqt3EucDTf0s7ShrzWU4IHZPuUh0-eU?purpose=inline)
+
+[High angle view of a modern office desk](https://images.openai.com/static-rsc-4/zLKFF3QqjaIMG9xAMzRBIhHr9VV4ZSQxMuQF1ebQBLg--cLpGfLlaj07ivvwUBexyQtqQ6RylQIAlTFIGuGY9l-sPyVljprVWw85l_JmIJvZH4sW6gKfnfLQK-vBycp6oSY3RtYvDQFxY571MEHgYx1troZw6lOBNYKb4-Q46f5JNYNOzEi56UjSLLsSwWxT?purpose=inline)
+
+9
+
+Goal: Produce a concise, useful description of the actual scene, including relevant objects, their approximate spatial relationships and visible details, without making things up.
+
+### What accuracy should mean
+
+- Correct object mentions: Mention objects that are genuinely visible, not objects that are merely common in that environment.
+- Coverage of relevant items: Include important, clearly visible objects rather than describing only the most prominent item. Not every tiny or irrelevant object needs to be spoken in every summary.
+- Correct relationships: If a laptop is on a desk, describe that relationship only when supported by the image. Do not confuse objects that overlap in the image with objects that physically touch.
+- Correct spatial language: Distinguish left, centre and right in the camera view. Use “near” or “far” only when there is a reliable basis for the estimate.
+- No invented details: Do not infer hidden objects, people's intentions, exact distances, unseen room layouts or actions that cannot be established from a still frame.
+- Useful prioritisation: Start with the main scene and important visible items, then add relevant details. Avoid a long list of every detected object.
+- Consistent descriptions: Repeated descriptions of an unchanged scene should not contradict one another without a visual reason.
+- Current-frame grounding: Every description must be generated from the current image or a clearly identified recent frame, never from an old description presented as new.
+
+### Recommended measurable targets
+
+Scene description is more complex to evaluate than basic object detection, so use a combination of human-reviewed tests and automated metrics.
+
+| Metric                           | Suggested target                                                                                   |
+| -------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Object-mention precision         | At least 95% of specific object claims are supported by the image                                  |
+| Important-object coverage        | At least 90% of predefined important visible objects are mentioned in the detailed evaluation mode |
+| Spatial relationship correctness | At least 90% on a labelled set of test scenes                                                      |
+| Unsupported claims               | Zero fabricated claims in the acceptance-test set                                                  |
+| Response time                    | Aim for a first useful description within 1–2 seconds on supported hardware                        |
+
+“Zero fabricated claims” is an acceptance-test goal, not a promise that a probabilistic vision model can never hallucinate. Test results must be reported honestly.
+
+## 5. Shared requirements for all four features
+
+Actual camera evidence
+
+All detections, target locations, OCR results and scene descriptions must be grounded in genuine frames from the camera or explicitly supplied images.
+
+Speed without stale results
+
+Load models once, avoid overlapping inference requests, prioritise fresh frames and measure processing time separately from speech time.
+
+100% sensitivity by default
+
+Initialise the setting to 100% on first load and after reopening or refreshing. Verify that the setting actually changes the detection pipeline. It does not mean 100% accuracy or a 100% confidence threshold.
+
+Real OpenCV 5 integration
+
+Verify the installed OpenCV version in the actual runtime and confirm that real camera frames pass through the intended OpenCV processing stages. Preserve coordinate mappings and compare accuracy and latency with preprocessing enabled and disabled.
+
+Reliable spoken feedback
+
+Speech must describe actual results, avoid excessive repetition, stop when cancelled and never speak stale or fabricated information.
+
+## 6. How to prove the accuracy is real
+
+Test all four features using the same carefully labelled collection of images and videos, with additional feature-specific tests.
+
+- Easy conditions: Clear, well-lit scenes with unobstructed objects.
+- Difficult conditions: Low light, glare, motion blur, clutter, small items, occlusion and overlapping objects.
+- Different viewpoints: Near the image edges, rotated objects, different camera angles and mirrored previews.
+- Negative cases: Requested objects that are absent, unreadable text and scenes where a detail cannot be established.
+- Repeatability: Re-run the same tests after code changes to detect regressions.
+
+Report actual measured precision, recall, OCR error rates, scene-grounding results, latency and the hardware/model configuration. Do not substitute a successful demo or a declared package version for measured evidence.
+
+Final standard, bro: OmniLens should detect and describe as many real, supported visible items as possible, identify them correctly, position them correctly, read actual text faithfully, and openly communicate uncertainty. The aim is maximum accuracy for all four features—not merely more boxes on the screen.

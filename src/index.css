@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    background-color: #0b0507;
+    color: #FAF7F0;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
+  }
+}
+
+/* Fluid Slow Subtle Undulation for Neon Border Lines (respecting reduced motion) */
+@keyframes neonShiftLeft {
+  0%, 100% {
+    transform: translateY(0px) scaleX(1);
+  }
+  50% {
+    transform: translateY(-12px) scaleX(1.02);
+  }
+}
+
+@keyframes neonShiftBottom {
+  0%, 100% {
+    transform: translateX(0px) scaleY(1);
+  }
+  50% {
+    transform: translateX(14px) scaleY(1.03);
+  }
+}
+
+@keyframes neonShiftRight {
+  0%, 100% {
+    transform: translateY(0px) scaleX(1);
+  }
+  50% {
+    transform: translateY(10px) scaleX(0.98);
+  }
+}
+
+.neon-stream-left {
+  transform-origin: left center;
+  animation: neonShiftLeft 14s ease-in-out infinite;
+}
+
+.neon-stream-bottom {
+  transform-origin: center bottom;
+  animation: neonShiftBottom 16s ease-in-out infinite;
+}
+
+.neon-stream-right {
+  transform-origin: right center;
+  animation: neonShiftRight 15s ease-in-out infinite;
+}
+
+.neon-delay-0 { animation-delay: 0s; }
+.neon-delay-1 { animation-delay: -1.2s; }
+.neon-delay-2 { animation-delay: -2.4s; }
+.neon-delay-3 { animation-delay: -3.6s; }
+.neon-delay-4 { animation-delay: -4.8s; }
+.neon-delay-5 { animation-delay: -6.0s; }
+.neon-delay-6 { animation-delay: -7.2s; }
+.neon-delay-7 { animation-delay: -8.4s; }
+
+/* Accessible font sizes */
+.font-size-normal {
+  font-size: 1rem;
+}
+.font-size-large {
+  font-size: 1.125rem;
+}
+.font-size-xlarge {
+  font-size: 1.25rem;
+}
+
+/* High Contrast Mode enhancements */
+.high-contrast-mode {
+  --tw-contrast: 1.35;
+  filter: contrast(1.25);
+}
+.high-contrast-mode button, 
+.high-contrast-mode [role="button"] {
+  outline-color: #ffffff !important;
+}
